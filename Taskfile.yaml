@@ -1,0 +1,18 @@
+version: '3'
+
+vars:
+  # change postgres_url
+  POSTGRES_URL: postgres://daniluk_admin:mimimidi1@localhost:5436/pastebin_backend?sslmode=disable
+
+tasks:
+  dev-up:
+    cmds:
+      - docker compose -f infra.yaml up -d
+  
+  dev-postgres-connect:
+    cmds:
+      - docker exec -it past_postgr psql -U daniluk_admin pastebin_backend
+
+  dev-rm-volumes:
+    cmds:
+      - docker volume rm $(docker volume ls | grep -i infra)
