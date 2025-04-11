@@ -7,7 +7,7 @@ async function uploadVideo() {
         return;
     }
 
-    const response = await fetch('https://ваш-бэкенд.ру/generate-presigned-url', {
+    const response = await fetch('http://localhost:8000/generate-presigned-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -21,7 +21,11 @@ async function uploadVideo() {
         return;
     }
 
-    const { presignedUrl } = await response.json();
+    const data = await response.json();     // 2. Парсим JSON
+    console.log("Распарсенный ответ:", data); // 3. Смотрим, что внутри
+
+    const presignedUrl = data.presigned_url;
+    console.log("URL", presignedUrl);
 
     const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
