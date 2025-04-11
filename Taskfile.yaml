@@ -5,6 +5,9 @@ vars:
   POSTGRES_URL: postgres://daniluk_admin:mimimidi1@localhost:5436/pastebin_backend?sslmode=disable
 
 tasks:
+  dev-build-up:
+    cmds:
+      - docker compose -f infra.yaml up --build -d
   dev-up:
     cmds:
       - docker compose -f infra.yaml up -d
