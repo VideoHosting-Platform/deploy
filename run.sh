@@ -12,6 +12,8 @@ check_status() {
 minikube start
 kubectl create namespace minio
 kubectl apply -f minio-deployment.yaml
+check_status "minio поднят"
+
 kubectl create secret generic minio-credentials \
   --from-literal=accesskey=minioadmin \
   --from-literal=secretkey=minioadmin \
@@ -28,8 +30,18 @@ helm install argo-workflows argo/argo-workflows \
   --create-namespace \
   --set "server.extraArgs={--auth-mode=server}"
 
+kubectl apply -f roles.yaml
+
+kubectl rollout restart deployment argo-workflows-server -n argo
+kubectl rollout restart deployment argo-workflows-workflow-controller -n argo
+
+minikube addons enable registry
+
+
+
 nohup kubectl -n argo port-forward svc/argo-workflows-server 2746:2746 &
 check_status "Argo Workflows Server (port 2746)"
+
 
 nohup kubectl port-forward -n minio svc/minio 9000:9000 9001:9001  > /dev/null 2>&1 &
 check_status "MinIO (ports 9000, 9001)"
@@ -39,5 +51,8 @@ check_status "Registry (port 5000)"
 
 nohup minikube dashboard &
 check_status "Minikube Dashboard"
+
+mc alias set kubemc http://localhost:9000 minioadmin minioadmin
+mc mb kubemc/videos
 
 echo "Все сервисы запущены в фоне. 🚀"
