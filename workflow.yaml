@@ -17,7 +17,6 @@ spec:
     - name: unified-processor
       container:
         # image: ubuntu:22.04  # Используем Ubuntu вместо Alpine
-        # image: localhost:5000/ubuntu:1.0
         image: localhost:5000/ffmpeg-minio:alpine-1.0
         command: ["sh", "-c"]
         args:
