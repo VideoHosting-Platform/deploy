@@ -84,3 +84,13 @@ sudo systemctl restart docker
 
 Пробросить порты
 kubectl port-forward -n kube-system svc/registry 5000:80 &
+
+
+Переключиться на Docker daemon Minikube
+eval $(minikube docker-env)
+
+docker build -t video-processor:1.0 .
+docker tag video-processor:1.0 localhost:5000/video-processor:1.0
+docker push localhost:5000/video-processor:1.0
+
+curl http://localhost:5000/v2/_catalog - это снаружи кубера
