@@ -31,6 +31,18 @@ check_status "MinIO (ports 9000, 9001)"
 nohup kubectl port-forward -n kube-system svc/registry 5000:80 &
 check_status "Registry (port 5000)"
 
+# Создание бакета videos и настройка нотификаций
+export PATH=$PATH:$HOME/minio-binaries/
+mc alias set minio http://localhost:9000 minioadmin minioadmin
+mc mb minio/videos
+mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
+mc admin service restart minio
+mc event add minio/videos arn:minio:sqs::service:webhook --event put
+
+mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
+# nohup kubectl port-forward -n default svc/fastapi-service 8000:8000 &
+# check_status "Fastapi port 8000"
+
 nohup minikube dashboard &
 check_status "Minikube Dashboard"
 

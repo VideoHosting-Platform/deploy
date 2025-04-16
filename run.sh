@@ -39,6 +39,8 @@ kubectl apply -f kuber/roles.yaml
 kubectl rollout restart deployment argo-workflows-server -n argo
 kubectl rollout restart deployment argo-workflows-workflow-controller -n argo
 
+kubectl apply -f kuber/fastapi-deployment.yaml
+
 minikube addons enable registry
 
 
