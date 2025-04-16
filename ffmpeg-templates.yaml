@@ -181,52 +181,57 @@ spec:
         command: ["sh", "-c"]
         args:
           - |
-            set -x
+            set -ex
             mc alias set kubemc http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin --api S3v4
-        
-            # ===== 2. Загрузка исходного файла =====
-            local_path="/tmp/input_$(date +%s).${local_path##*.}"
-            echo "Downloading {{inputs.parameters.video_path}} to $local_path"
-            mc cp "kubemc/videos/{{inputs.parameters.video_path}}" "$local_path" || exit 1
             
-            # ===== 3. Обработка видео =====
-            output_dir="/tmp/output_${RANDOM}"
+            # Подготовка директорий
+            output_dir="/tmp/output_$(date +%s)"
             mkdir -p "$output_dir"
+            chmod -R 777 "$output_dir"
             
-            # Уменьшаем кол-во потоков для FFmpeg (оптимизация ресурсов)
-            export FFMPEG_THREADS=2
+            # Загрузка исходного файла
+            local_path="/tmp/input_$(date +%s).mp4"
+            mc cp "kubemc/videos/{{inputs.parameters.video_path}}" "$local_path" || { echo "Failed to download"; exit 1; }
             
-            ffmpeg -threads $FFMPEG_THREADS -i "$local_path" \
+            # Кодирование с правильным распределением потоков
+            ffmpeg -threads 2 -i "$local_path" \
               -filter_complex \
-                "[0:v]split=4[v1][v2][v3][v4]; \
-                [v1]scale=854:480[v1out]; \
-                [v2]scale=640:360[v2out]; \
-                [v3]scale=426:240[v3out]; \
-                [v4]scale=256:144[v4out]" \
-              -map "[v1out]" -c:v:0 libx264 -preset medium -x264-params "nal-hrd=cbr:force-cfr=1:threads=$FFMPEG_THREADS" \
-                -b:v:0 1500k -maxrate:v:0 1500k -minrate:v:0 1500k -bufsize:v:0 3000k -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map "[v2out]" -c:v:1 libx264 -preset medium -x264-params "nal-hrd=cbr:force-cfr=1:threads=$FFMPEG_THREADS" \
-                -b:v:1 1000k -maxrate:v:1 1000k -minrate:v:1 1000k -bufsize:v:1 2000k -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map "[v3out]" -c:v:2 libx264 -preset medium -x264-params "nal-hrd=cbr:force-cfr=1:threads=$FFMPEG_THREADS" \
-                -b:v:2 500k -maxrate:v:2 500k -minrate:v:2 500k -bufsize:v:2 1000k -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map "[v4out]" -c:v:3 libx264 -preset medium -x264-params "nal-hrd=cbr:force-cfr=1:threads=$FFMPEG_THREADS" \
-                -b:v:3 300k -maxrate:v:3 300k -minrate:v:3 300k -bufsize:v:3 600k -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map a:0 -c:a aac -b:a 96k -ac 2 \
+                "[0:v]split=4[480][360][240][144]; \
+                [480]scale=854:480[480out]; \
+                [360]scale=640:360[360out]; \
+                [240]scale=426:240[240out]; \
+                [144]scale=256:144[144out]" \
+              -map "[480out]" -c:v:0 libx264 -preset medium \
+                -b:v:0 1500k -maxrate:v:0 1500k -minrate:v:0 1500k -bufsize:v:0 3000k \
+                -g 48 -keyint_min 48 -sc_threshold 0 \
+              -map "[360out]" -c:v:1 libx264 -preset medium \
+                -b:v:1 1000k -maxrate:v:1 1000k -minrate:v:1 1000k -bufsize:v:1 2000k \
+                -g 48 -keyint_min 48 -sc_threshold 0 \
+              -map "[240out]" -c:v:2 libx264 -preset medium \
+                -b:v:2 500k -maxrate:v:2 500k -minrate:v:2 500k -bufsize:v:2 1000k \
+                -g 48 -keyint_min 48 -sc_threshold 0 \
+              -map "[144out]" -c:v:3 libx264 -preset medium \
+                -b:v:3 300k -maxrate:v:3 300k -minrate:v:3 300k -bufsize:v:3 600k \
+                -g 48 -keyint_min 48 -sc_threshold 0 \
+              -map 0:a -c:a:0 aac -b:a:0 96k -ac 2 \
+              -map 0:a -c:a:1 aac -b:a:1 96k -ac 2 \
+              -map 0:a -c:a:2 aac -b:a:2 96k -ac 2 \
+              -map 0:a -c:a:3 aac -b:a:3 96k -ac 2 \
               -f hls -hls_time 5 -hls_list_size 0 -hls_playlist_type vod \
               -hls_segment_type mpegts -hls_flags independent_segments \
-              -var_stream_map "v:0,a:0,name:480p v:1,a:0,name:360p v:2,a:0,name:240p v:3,a:0,name:144p" \
+              -var_stream_map "v:0,a:0,name:480p v:1,a:1,name:360p v:2,a:2,name:240p v:3,a:3,name:144p" \
               -master_pl_name "master.m3u8" \
-              -hls_segment_filename "$output_dir/%v-{{inputs.parameters.uuid}}%05d.ts" \
-              "$output_dir/%v-{{inputs.parameters.uuid}}.m3u8"
-
-            # ===== 4. Загрузка в MinIO =====
-            echo "Uploading results to MinIO"
-            mc cp --recursive "$output_dir/" "kubemc/videos/{{inputs.parameters.uuid}}/" || exit 1
+              -hls_segment_filename "$output_dir/%v_%03d.ts" \
+              "$output_dir/%v.m3u8" || { echo "FFmpeg failed"; exit 1; }
             
-            # ===== 5. Очистка временных файлов =====
-            echo "Cleaning up temporary files"
+            # Проверка и загрузка
+            ls -la "$output_dir" || { echo "No output files"; exit 1; }
+            mc cp --recursive "$output_dir/" "kubemc/videos/{{inputs.parameters.uuid}}/" || { echo "Upload failed"; exit 1; }
+            
+            # Очистка
             rm -f "$local_path"
             rm -rf "$output_dir"
+            echo "Processing completed successfully"
 
     - name: process-360p
       inputs:
@@ -280,6 +285,8 @@ spec:
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
             
             mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            rm -f "$local_path"
+            rm -rf "$output_dir"
 
     - name: process-240p
       inputs:
@@ -328,7 +335,9 @@ spec:
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
 
-              mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            rm -f "$local_path"
+            rm -rf "$output_dir"
 
     - name: process-144p
       inputs:
@@ -369,3 +378,5 @@ spec:
               "/tmp/output/{{inputs.parameters.uuid}}/144p-{{inputs.parameters.uuid}}.m3u8"
             
             mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            rm -f "$local_path"
+            rm -rf "$output_dir"

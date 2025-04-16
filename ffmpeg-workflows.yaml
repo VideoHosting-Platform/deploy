@@ -58,7 +58,9 @@ spec:
 
               client = Minio('minio.minio.svc.cluster.local:9000',
                             access_key='minioadmin',
-                            secret_key='minioadmin')
+                            secret_key='minioadmin',
+                            secure=False
+              )
 
               qualities = {
                   '4K':    (15000000, '3840x2160'),
