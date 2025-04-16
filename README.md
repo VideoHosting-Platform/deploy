@@ -62,6 +62,10 @@ nohup kubectl port-forward -n default svc/minio 9000:9000 9001:9001  > /dev/null
 #### 3) Создать и запустить воркфлоу из workflow.yaml:
 ```
 kubectl -n argo create -f workflow.yaml
+# для более детального вызова
+argo submit -n argo ffmpeg-workflows.yaml \
+  -p video_path="BigBuckBunny_640x360.m4v" \
+  -p uuid="12455" -p preset="240p"
 ```
 
 #### логи

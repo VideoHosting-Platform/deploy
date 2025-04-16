@@ -11,7 +11,7 @@ check_status() {
 
 minikube start
 kubectl create namespace minio
-kubectl apply -f minio-deployment.yaml
+kubectl apply -f kuber/minio-deployment.yaml
 check_status "minio поднят"
 
 kubectl create secret generic minio-credentials \
@@ -30,7 +30,9 @@ helm install argo-workflows argo/argo-workflows \
   --create-namespace \
   --set "server.extraArgs={--auth-mode=server}"
 
-kubectl apply -f roles.yaml
+kubectl apply -f kuber/ffmpeg-templates.yaml -n argo
+
+kubectl apply -f kuber/roles.yaml
 
 kubectl rollout restart deployment argo-workflows-server -n argo
 kubectl rollout restart deployment argo-workflows-workflow-controller -n argo
