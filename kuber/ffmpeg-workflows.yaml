@@ -1,0 +1,93 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: video-processing-
+spec:
+  entrypoint: main
+  arguments:
+    parameters:
+      - name: video_path #?
+      - name: uuid
+      - name: preset
+  volumes:
+    - name: workspace
+      emptyDir: {}
+  
+  templates:
+    - name: main
+      steps:
+        - - name: process
+            templateRef:
+              name: video-processing-templates
+              template: "process-{{workflow.parameters.preset}}"
+            arguments:  # ← Явно передаём параметры в шаблон
+              parameters:
+                - name: video_path  # Имя параметра в шаблоне
+                  value: "{{workflow.parameters.video_path}}"  # Берём из Workflow
+                - name: uuid       # Если нужно
+                  value: "{{workflow.parameters.uuid}}"
+        - - name: generate-master
+            template: generate-master
+            arguments:
+              parameters:
+                - name: uuid
+                  value: "{{workflow.parameters.uuid}}"
+        # - - name: notify
+        #     template: notify-backend
+      
+    #Готовое решение для генерации мастер-плейлиста
+    - name: generate-master
+      inputs:
+        parameters:
+          - name: uuid
+      container:
+          image: python:3.9-alpine3.16  # Официальный образ с Python (~45MB)
+          command: ["sh", "-c"]
+          args:
+            - |
+              # Установка MinIO Client и зависимостей
+              apk add --no-cache curl
+              curl -o /usr/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+              chmod +x /usr/bin/mc
+              pip install minio
+
+              # Генерация мастер-плейлиста
+              python3 -c "
+              import os
+              from minio import Minio
+
+              client = Minio('minio.minio.svc.cluster.local:9000',
+                            access_key='minioadmin',
+                            secret_key='minioadmin',
+                            secure=False
+              )
+
+              qualities = {
+                  '4K':    (15000000, '3840x2160'),
+                  '2K':    (8000000,  '2560x1440'),
+                  '1080p': (5000000,  '1920x1080'),
+                  '720p':  (2500000,  '1280x720'),
+                  '480p':  (1500000,  '854x480'),
+                  '360p':  (1000000,  '640x360'),
+                  '240p':  (500000,   '426x240'),
+                  '144p':  (300000,   '256x144')
+              }
+
+              with open('/tmp/master.m3u8', 'w') as f:
+                  f.write('#EXTM3U\n#EXT-X-VERSION:3\n')
+                  for obj in client.list_objects('videos', '{{inputs.parameters.uuid}}/'):
+                      if not obj.object_name.endswith('.m3u8'):
+                          continue
+                      for q in qualities:
+                          if q in obj.object_name:
+                              bw, res = qualities[q]
+                              f.write(f'#EXT-X-STREAM-INF:BANDWIDTH={bw},RESOLUTION={res}\n{os.path.basename(obj.object_name)}\n')
+                              break
+
+              client.fput_object('videos', '{{inputs.parameters.uuid}}/master.m3u8', '/tmp/master.m3u8')
+              "
+    
+    - name: notify-backend
+      container:
+        image: alpine/curl
+        command: ["curl", "-X", "POST", "http://fastapi/notify"]
