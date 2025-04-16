@@ -11,22 +11,81 @@ spec:
       steps:
         - - name: process-high
             template: process-4K-high
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
           - name: process-low
             template: process-480p-low
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
     - name: process-2k
       parallelism: 2
       steps:
         - - name: process-high
             template: process-2k-high
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
           - name: process-low
             template: process-480p-low
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
     - name: process-1080p
       parallelism: 3
       steps:
         - - name: process-high 
             template: process-1080p-high
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
           - name: process-low  
             template: process-480p-low
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
+    - name: process-720p
+      inputs:
+        parameters:
+          - name: video_path
+          - name: uuid
+      parallelism: 2 
+      steps:
+        - - name: process-high
+            template: process-720p-high
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
+          - name: process-low-res
+            template: process-360p-low
+            arguments:
+              parameters:
+                - name: video_path
+                  value: "{{inputs.parameters.video_path}}"
+                - name: uuid
+                  value: "{{inputs.parameters.uuid}}"
     
     - name: process-4K-high
       metadata:
@@ -34,7 +93,7 @@ spec:
           workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: workflow-id
@@ -77,7 +136,7 @@ spec:
           workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: workflow-id
@@ -118,7 +177,7 @@ spec:
           workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: workflow-id
@@ -149,7 +208,69 @@ spec:
               -map a:0 -c:a aac -b:a 128k \
               -f hls -hls_time 10 \
               output_high_%v.m3u8
-            mc cp output_high_* s3/processed/
+            mc cp output_high_* s3/processed/ #!
+    
+    - name: process-720p-high
+      inputs:
+        parameters:
+          - name: video_path
+          - name: uuid
+      metadata:
+        labels:
+          workflow-id: "{{workflow.uid}}"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100  # Должно быть от 1 до 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: workflow-id
+                  operator: In
+                  values: ["{{workflow.uid}}"]
+              topologyKey: "kubernetes.io/hostname"
+      container:
+        image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "6"
+            memory: "7Gi"
+          requests:
+            cpu: "5"
+            memory: "6Gi"
+        command: ["sh", "-c"]
+        args:
+          - |
+            set -x
+            mc alias set kubemc http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin --api S3v4
+            minio_path="kubemc/videos/{{inputs.parameters.video_path}}"
+            local_path="/tmp/$(basename "{{inputs.parameters.video_path}}")"
+            mc cp "$minio_path" "$local_path" || exit 1
+            mkdir -p /tmp/output/{{inputs.parameters.uuid}}
+
+            ffmpeg -i "$local_path" \
+              -filter_complex "
+                [0:v]split=2[v1][v2];
+                [v1]scale=-2:720[v1out];
+                [v2]scale=-2:480[v2out];
+                [0:a]asplit=2[a1][a2]
+              " \
+              -map "[v1out]" -c:v:0 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:0 2500k -maxrate:v:0 2500k -minrate:v:0 2500k -bufsize:v:0 5000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v2out]" -c:v:1 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:1 1500k -maxrate:v:1 1500k -minrate:v:1 1500k -bufsize:v:1 3000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[a1]" -c:a:0 aac -b:a:0 128k \
+              -map "[a2]" -c:a:1 aac -b:a:1 96k \
+              -f hls \
+              -var_stream_map "v:0,a:0,name:720p v:1,a:1,name:480p" \
+              -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
+              "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
+
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
+            rm -f "$local_path"
+            rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
 
     # Общий шаблон для низких разрешений
     - name: process-480p-low
@@ -162,7 +283,7 @@ spec:
           workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: workflow-id
@@ -225,82 +346,87 @@ spec:
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
 
-            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
             rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
 
-    #Signle templates
-    - name: process-720p
+    - name: process-360p-low
       inputs:
         parameters:
           - name: video_path
           - name: uuid
+      metadata:
+        labels:
+          workflow-id: "{{workflow.uid}}"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100  # Должно быть от 1 до 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: workflow-id
+                  operator: In
+                  values: ["{{workflow.uid}}"]
+              topologyKey: "kubernetes.io/hostname"
       container:
         image: danilukumnik/ffmpeg-minio:alpine-1.14
         resources:
           limits:
-            cpu: "6"
-            memory: "8Gi"
+            cpu: "3"
+            memory: "6Gi"
           requests:
-            cpu: "5"
-            memory: "7Gi"
+            cpu: "2"
+            memory: "5Gi"
         command: ["sh", "-c"]
         args:
           - |
             set -x
             mc alias set kubemc http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin --api S3v4
             
+                    # Копируем файл с оригинальным именем
             minio_path="kubemc/videos/{{inputs.parameters.video_path}}"
             local_path="/tmp/$(basename "{{inputs.parameters.video_path}}")"
             
             echo "Copying $minio_path to $local_path"
             mc cp "$minio_path" "$local_path" || { echo "Failed to copy file"; exit 1; }
             
+            # Создание директории для выходных файлов
             mkdir -p /tmp/output/{{inputs.parameters.uuid}}
 
             ffmpeg -i "$local_path" \
               -filter_complex \
-                "[0:v]split=5[v1][v2][v3][v4][v5]; \
-                [v1]scale=-2:720[v1out]; \
-                [v2]scale=-2:480[v2out]; \
-                [v3]scale=-2:360[v3out]; \
-                [v4]scale=-2:240[v4out]; \
-                [v5]scale=-2:144[v5out]" \
+                "[0:v]split=3[v1][v2][v3]; \
+                [v1]scale=-2:360[v1out]; \
+                [v2]scale=-2:240[v2out]; \
+                [v3]scale=-2:144[v3out]" \
               -map "[v1out]" -c:v:0 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
-                -b:v:0 2500k -maxrate:v:0 2500k -minrate:v:0 2500k -bufsize:v:0 5000k \
+                -b:v:0 1000k -maxrate:v:0 1000k -minrate:v:0 1000k -bufsize:v:0 2000k \
                 -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
               -map "[v2out]" -c:v:1 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
-                -b:v:1 1500k -maxrate:v:1 1500k -minrate:v:1 1500k -bufsize:v:1 3000k \
+                -b:v:1 500k -maxrate:v:1 500k -minrate:v:1 500k -bufsize:v:1 1000k \
                 -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
               -map "[v3out]" -c:v:2 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
-                -b:v:2 800k -maxrate:v:2 800k -minrate:v:2 800k -bufsize:v:2 1600k \
+                -b:v:2 300k -maxrate:v:2 300k -minrate:v:2 300k -bufsize:v:2 600k \
                 -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map "[v4out]" -c:v:3 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
-                -b:v:3 500k -maxrate:v:3 500k -minrate:v:3 500k -bufsize:v:3 1000k \
-                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map "[v5out]" -c:v:4 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
-                -b:v:4 300k -maxrate:v:4 300k -minrate:v:4 300k -bufsize:v:4 600k \
-                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
-              -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
-              -map a:0 -c:a:1 aac -b:a:1 96k -ac 2 \
-              -map a:0 -c:a:2 aac -b:a:2 96k -ac 2 \
-              -map a:0 -c:a:3 aac -b:a:3 64k -ac 2 \
-              -map a:0 -c:a:4 aac -b:a:4 64k -ac 2 \
+              -map a:0 -c:a:0 aac -b:a:0 64k -ac 2 \
+              -map a:0 -c:a:1 aac -b:a:1 64k -ac 2 \
+              -map a:0 -c:a:2 aac -b:a:2 64k -ac 2 \
               -f hls \
               -hls_time 5 \
               -hls_list_size 0 \
               -hls_playlist_type vod \
               -hls_segment_type mpegts \
               -hls_flags independent_segments \
-              -var_stream_map "v:0,a:0,name:720p v:1,a:1,name:480p v:2,a:2,name:360p v:3,a:3,name:240p v:4,a:4,name:144p" \
+              -var_stream_map "v:0,a:0,name:360p v:1,a:1,name:240p v:2,a:2,name:144p" \
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
-
-            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
-            rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
+            rm -rf "$output_dir"
 
-
+    #Signle templates
     - name: process-480p
       inputs:
         parameters:
@@ -362,7 +488,7 @@ spec:
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
 
-            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
             rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
 
@@ -424,7 +550,7 @@ spec:
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
             
-            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
             rm -rf "$output_dir"
 
@@ -482,7 +608,7 @@ spec:
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
 
-            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
             rm -rf "$output_dir"
 
@@ -531,6 +657,6 @@ spec:
               -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/144p-{{inputs.parameters.uuid}}%05d.ts" \
               "/tmp/output/{{inputs.parameters.uuid}}/144p-{{inputs.parameters.uuid}}.m3u8"
             
-            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/video_files/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
             rm -rf "$output_dir"
