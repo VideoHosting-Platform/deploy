@@ -9,43 +9,47 @@ spec:
     - name: process-4K
       parallelism: 2
       steps:
-      - - name: process-high
-          template: process-4K-high
-      - - name: process-low
-          template: process-480p-low
+        - - name: process-high
+            template: process-4K-high
+          - name: process-low
+            template: process-480p-low
     - name: process-2k
-      parallelism: 2 #?
-      steps:
-      - - name: process-high
-          template: process-2k-high
-      - - name: process-low
-          template: process-480p-low
-    - name: process-1080p
       parallelism: 2
       steps:
-      - - name: process-high
-          template: process-1080p-high
-      - - name: process-low
-          template: process-480p-low
+        - - name: process-high
+            template: process-2k-high
+          - name: process-low
+            template: process-480p-low
+    - name: process-1080p
+      parallelism: 3
+      steps:
+        - - name: process-high 
+            template: process-1080p-high
+          - name: process-low  
+            template: process-480p-low
     
     - name: process-4K-high
+      metadata:
+        labels:
+          workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: workflow.argoproj.io/workflow
-                operator: Exists
-            topologyKey: kubernetes.io/hostname
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-type
+              - key: workflow-id
                 operator: In
-                values: ["high"]
+                values: ["{{workflow.uid}}"]
+            topologyKey: kubernetes.io/hostname
       container:
         image: ffmpeg-minio
+        resources:
+          limits:
+            cpu: "8"
+            memory: "16Gi"
+          requests:
+            cpu: "6"
+            memory: "12Gi"
         command: ["sh", "-c"]
         args:
           - |
@@ -68,23 +72,27 @@ spec:
             mc cp output_high_* s3/processed/
     
     - name: process-2K-high
+      metadata:
+        labels:
+          workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: workflow.argoproj.io/workflow
-                operator: Exists
-            topologyKey: kubernetes.io/hostname
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-type
+              - key: workflow-id
                 operator: In
-                values: ["high"]
+                values: ["{{workflow.uid}}"]
+            topologyKey: kubernetes.io/hostname
       container:
-        image: ffmpeg-minio
+        image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "6"
+            memory: "12Gi"
+          requests:
+            cpu: "4"
+            memory: "8Gi"
         command: ["sh", "-c"]
         args:
           - |
@@ -105,23 +113,27 @@ spec:
             mc cp output_high_* s3/processed/
       
     - name: process-1080p-high
+      metadata:
+        labels:
+          workflow-id: "{{workflow.uid}}"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: workflow.argoproj.io/workflow
-                operator: Exists
-            topologyKey: kubernetes.io/hostname
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-type
+              - key: workflow-id
                 operator: In
-                values: ["high"]
+                values: ["{{workflow.uid}}"]
+            topologyKey: kubernetes.io/hostname
       container:
-        image: ffmpeg-minio
+        image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+          requests:
+            cpu: "3"
+            memory: "6Gi"
         command: ["sh", "-c"]
         args:
           - |
@@ -141,35 +153,153 @@ spec:
 
     # Общий шаблон для низких разрешений
     - name: process-480p-low
+      inputs:
+        parameters:
+          - name: video_path
+          - name: uuid
+      metadata:
+        labels:
+          workflow-id: "{{workflow.uid}}"
       affinity:
-        nodeAffinity:
+        podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-type
+          - labelSelector:
+              matchExpressions:
+              - key: workflow-id
                 operator: In
-                values: ["low"]
+                values: ["{{workflow.uid}}"]
+            topologyKey: kubernetes.io/hostname
       container:
-        image: ffmpeg-minio
+        image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "5"
+            memory: "4Gi"
+          requests:
+            cpu: "4"
+            memory: "3Gi"
         command: ["sh", "-c"]
         args:
           - |
-            ffmpeg -i /tmp/input.mp4 \
-              -filter_complex "
-                [v]split=4[480][360][240][144];
-                [480]scale=640:-2[480out];
-                [360]scale=480:-2[360out];
-                [240]scale=360:-2[240out];
-                [144]scale=256:-2[144out]
-              " \
-              -map "[480out]" -c:v libx264 -crf 23 -preset veryfast \
-              -map "[360out]" -c:v libx264 -crf 23 -preset veryfast \
-              -map "[240out]" -c:v libx264 -crf 23 -preset superfast \
-              -map "[144out]" -c:v libx264 -crf 23 -preset ultrafast \
-              -map a:0 -c:a aac -b:a 64k \
-              -f hls -hls_time 10 \
-              output_low_%v.m3u8
-            mc cp output_low_* s3/processed/
+            set -x
+            mc alias set kubemc http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin --api S3v4
+            
+            minio_path="kubemc/videos/{{inputs.parameters.video_path}}"
+            local_path="/tmp/$(basename "{{inputs.parameters.video_path}}")"
+            
+            echo "Copying $minio_path to $local_path"
+            mc cp "$minio_path" "$local_path" || { echo "Failed to copy file"; exit 1; }
+            
+            mkdir -p /tmp/output/{{inputs.parameters.uuid}}
+
+            ffmpeg -i "$local_path" \
+              -filter_complex \
+                "[0:v]split=4[v1][v2][v3][v4]; \
+                [v1]scale=-2:480[v1out]; \
+                [v2]scale=-2:360[v2out]; \
+                [v3]scale=-2:240[v3out]; \
+                [v4]scale=-2:144[v4out]" \
+              -map "[v1out]" -c:v:0 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:0 1500k -maxrate:v:0 1500k -minrate:v:0 1500k -bufsize:v:0 3000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v2out]" -c:v:1 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:1 800k -maxrate:v:1 800k -minrate:v:1 800k -bufsize:v:1 1600k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v3out]" -c:v:2 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:2 500k -maxrate:v:2 500k -minrate:v:2 500k -bufsize:v:2 1000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v4out]" -c:v:3 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:3 300k -maxrate:v:3 300k -minrate:v:3 300k -bufsize:v:3 600k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map a:0 -c:a:0 aac -b:a:0 96k -ac 2 \
+              -map a:0 -c:a:1 aac -b:a:1 96k -ac 2 \
+              -map a:0 -c:a:2 aac -b:a:2 64k -ac 2 \
+              -map a:0 -c:a:3 aac -b:a:3 64k -ac 2 \
+              -f hls \
+              -hls_time 5 \
+              -hls_list_size 0 \
+              -hls_playlist_type vod \
+              -hls_segment_type mpegts \
+              -hls_flags independent_segments \
+              -var_stream_map "v:0,a:0,name:480p v:1,a:1,name:360p v:2,a:2,name:240p v:3,a:3,name:144p" \
+              -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
+              "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
+
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            rm -f "$local_path"
+            rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
+
+    #Signle templates
+    - name: process-720p
+      inputs:
+        parameters:
+          - name: video_path
+          - name: uuid
+      container:
+        image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "6"
+            memory: "8Gi"
+          requests:
+            cpu: "5"
+            memory: "7Gi"
+        command: ["sh", "-c"]
+        args:
+          - |
+            set -x
+            mc alias set kubemc http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin --api S3v4
+            
+            minio_path="kubemc/videos/{{inputs.parameters.video_path}}"
+            local_path="/tmp/$(basename "{{inputs.parameters.video_path}}")"
+            
+            echo "Copying $minio_path to $local_path"
+            mc cp "$minio_path" "$local_path" || { echo "Failed to copy file"; exit 1; }
+            
+            mkdir -p /tmp/output/{{inputs.parameters.uuid}}
+
+            ffmpeg -i "$local_path" \
+              -filter_complex \
+                "[0:v]split=5[v1][v2][v3][v4][v5]; \
+                [v1]scale=-2:720[v1out]; \
+                [v2]scale=-2:480[v2out]; \
+                [v3]scale=-2:360[v3out]; \
+                [v4]scale=-2:240[v4out]; \
+                [v5]scale=-2:144[v5out]" \
+              -map "[v1out]" -c:v:0 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:0 2500k -maxrate:v:0 2500k -minrate:v:0 2500k -bufsize:v:0 5000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v2out]" -c:v:1 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:1 1500k -maxrate:v:1 1500k -minrate:v:1 1500k -bufsize:v:1 3000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v3out]" -c:v:2 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:2 800k -maxrate:v:2 800k -minrate:v:2 800k -bufsize:v:2 1600k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v4out]" -c:v:3 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:3 500k -maxrate:v:3 500k -minrate:v:3 500k -bufsize:v:3 1000k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v5out]" -c:v:4 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:4 300k -maxrate:v:4 300k -minrate:v:4 300k -bufsize:v:4 600k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
+              -map a:0 -c:a:1 aac -b:a:1 96k -ac 2 \
+              -map a:0 -c:a:2 aac -b:a:2 96k -ac 2 \
+              -map a:0 -c:a:3 aac -b:a:3 64k -ac 2 \
+              -map a:0 -c:a:4 aac -b:a:4 64k -ac 2 \
+              -f hls \
+              -hls_time 5 \
+              -hls_list_size 0 \
+              -hls_playlist_type vod \
+              -hls_segment_type mpegts \
+              -hls_flags independent_segments \
+              -var_stream_map "v:0,a:0,name:720p v:1,a:1,name:480p v:2,a:2,name:360p v:3,a:3,name:240p v:4,a:4,name:144p" \
+              -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
+              "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
+
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
+            rm -f "$local_path"
+            rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
+
 
     - name: process-480p
       inputs:
@@ -178,60 +308,63 @@ spec:
           - name: uuid
       container:
         image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "4"
+            memory: "4Gi"
+          requests:
+            cpu: "3"
+            memory: "3Gi"
         command: ["sh", "-c"]
         args:
           - |
-            set -ex
+            set -x
             mc alias set kubemc http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin --api S3v4
             
-            # Подготовка директорий
-            output_dir="/tmp/output_$(date +%s)"
-            mkdir -p "$output_dir"
-            chmod -R 777 "$output_dir"
+            minio_path="kubemc/videos/{{inputs.parameters.video_path}}"
+            local_path="/tmp/$(basename "{{inputs.parameters.video_path}}")"
             
-            # Загрузка исходного файла
-            local_path="/tmp/input_$(date +%s).mp4"
-            mc cp "kubemc/videos/{{inputs.parameters.video_path}}" "$local_path" || { echo "Failed to download"; exit 1; }
+            echo "Copying $minio_path to $local_path"
+            mc cp "$minio_path" "$local_path" || { echo "Failed to copy file"; exit 1; }
             
-            # Кодирование с правильным распределением потоков
-            ffmpeg -threads 2 -i "$local_path" \
+            mkdir -p /tmp/output/{{inputs.parameters.uuid}}
+
+            ffmpeg -i "$local_path" \
               -filter_complex \
-                "[0:v]split=4[480][360][240][144]; \
-                [480]scale=854:480[480out]; \
-                [360]scale=640:360[360out]; \
-                [240]scale=426:240[240out]; \
-                [144]scale=256:144[144out]" \
-              -map "[480out]" -c:v:0 libx264 -preset medium \
+                "[0:v]split=4[v1][v2][v3][v4]; \
+                [v1]scale=-2:480[v1out]; \
+                [v2]scale=-2:360[v2out]; \
+                [v3]scale=-2:240[v3out]; \
+                [v4]scale=-2:144[v4out]" \
+              -map "[v1out]" -c:v:0 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
                 -b:v:0 1500k -maxrate:v:0 1500k -minrate:v:0 1500k -bufsize:v:0 3000k \
-                -g 48 -keyint_min 48 -sc_threshold 0 \
-              -map "[360out]" -c:v:1 libx264 -preset medium \
-                -b:v:1 1000k -maxrate:v:1 1000k -minrate:v:1 1000k -bufsize:v:1 2000k \
-                -g 48 -keyint_min 48 -sc_threshold 0 \
-              -map "[240out]" -c:v:2 libx264 -preset medium \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v2out]" -c:v:1 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
+                -b:v:1 800k -maxrate:v:1 800k -minrate:v:1 800k -bufsize:v:1 1600k \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v3out]" -c:v:2 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
                 -b:v:2 500k -maxrate:v:2 500k -minrate:v:2 500k -bufsize:v:2 1000k \
-                -g 48 -keyint_min 48 -sc_threshold 0 \
-              -map "[144out]" -c:v:3 libx264 -preset medium \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map "[v4out]" -c:v:3 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" \
                 -b:v:3 300k -maxrate:v:3 300k -minrate:v:3 300k -bufsize:v:3 600k \
-                -g 48 -keyint_min 48 -sc_threshold 0 \
-              -map 0:a -c:a:0 aac -b:a:0 96k -ac 2 \
-              -map 0:a -c:a:1 aac -b:a:1 96k -ac 2 \
-              -map 0:a -c:a:2 aac -b:a:2 96k -ac 2 \
-              -map 0:a -c:a:3 aac -b:a:3 96k -ac 2 \
-              -f hls -hls_time 5 -hls_list_size 0 -hls_playlist_type vod \
-              -hls_segment_type mpegts -hls_flags independent_segments \
+                -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+              -map a:0 -c:a:0 aac -b:a:0 96k -ac 2 \
+              -map a:0 -c:a:1 aac -b:a:1 96k -ac 2 \
+              -map a:0 -c:a:2 aac -b:a:2 64k -ac 2 \
+              -map a:0 -c:a:3 aac -b:a:3 64k -ac 2 \
+              -f hls \
+              -hls_time 5 \
+              -hls_list_size 0 \
+              -hls_playlist_type vod \
+              -hls_segment_type mpegts \
+              -hls_flags independent_segments \
               -var_stream_map "v:0,a:0,name:480p v:1,a:1,name:360p v:2,a:2,name:240p v:3,a:3,name:144p" \
-              -master_pl_name "master.m3u8" \
-              -hls_segment_filename "$output_dir/%v_%03d.ts" \
-              "$output_dir/%v.m3u8" || { echo "FFmpeg failed"; exit 1; }
-            
-            # Проверка и загрузка
-            ls -la "$output_dir" || { echo "No output files"; exit 1; }
-            mc cp --recursive "$output_dir/" "kubemc/videos/{{inputs.parameters.uuid}}/" || { echo "Upload failed"; exit 1; }
-            
-            # Очистка
+              -hls_segment_filename "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}%05d.ts" \
+              "/tmp/output/{{inputs.parameters.uuid}}/%v-{{inputs.parameters.uuid}}.m3u8"
+
+            mc cp --recursive /tmp/output/{{inputs.parameters.uuid}}/ kubemc/videos/{{inputs.parameters.uuid}}/
             rm -f "$local_path"
-            rm -rf "$output_dir"
-            echo "Processing completed successfully"
+            rm -rf "/tmp/output/{{inputs.parameters.uuid}}"
 
     - name: process-360p
       inputs:
@@ -240,6 +373,13 @@ spec:
           - name: uuid
       container:
         image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "4"
+            memory: "5Gi"
+          requests:
+            cpu: "3"
+            memory: "4Gi"
         command: ["sh", "-c"]
         args:
           - |
@@ -295,6 +435,13 @@ spec:
           - name: uuid
       container:
         image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "4"
+            memory: "4Gi"
+          requests:
+            cpu: "3"
+            memory: "3Gi"
         command: ["sh", "-c"]
         args:
           - |
@@ -346,6 +493,13 @@ spec:
           - name: uuid
       container:
         image: danilukumnik/ffmpeg-minio:alpine-1.14
+        resources:
+          limits:
+            cpu: "3"
+            memory: "3Gi"
+          requests:
+            cpu: "2"
+            memory: "2Gi"
         command: ["sh", "-c"]
         args:
           - |
