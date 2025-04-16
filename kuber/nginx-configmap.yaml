@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  # index.html
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Upload Video to MinIO</title>
+        <style>
+            #progressBar {
+                width: 100%;
+                background-color: #f3f3f3;
+                margin-top: 10px;
+            }
+            #progressBarFill {
+                height: 20px;
+                background-color: #4CAF50;
+                width: 0%;
+                text-align: center;
+                line-height: 20px;
+                color: white;
+            }
+        </style>
+    </head>
+    <body>
+        <input type="file" id="videoUpload" accept="video/*">
+        <button onclick="uploadVideo()">Upload</button>
+        <div id="progressBar">
+            <div id="progressBarFill">0%</div>
+        </div>
+        <div id="status"></div>
+
+        <script src="upload.js"></script>
+    </body>
+    </html>
+
+  # upload.js
+  upload.js: |
+    async function uploadVideo() {
+        const fileInput = document.getElementById('videoUpload');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert('Выберите файл!');
+            return;
+        }
+
+        const response = await fetch('http://localhost:8000/generate-presigned-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fileName: file.name,
+                fileType: file.type,
+            }),
+        });
+
+        if (!response.ok) {
+            alert('Ошибка при получении URL для загрузки');
+            return;
+        }
+
+        const data = await response.json();     // 2. Парсим JSON
+        console.log("Распарсенный ответ:", data); // 3. Смотрим, что внутри
+
+        const presignedUrl = data.presigned_url;
+        console.log("URL", presignedUrl);
+
+        const uploadResponse = await fetch(presignedUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': "video/mp4" },
+        });
+
+        if (uploadResponse.ok) {
+            alert('✅ Файл успешно загружен!');
+        } else {
+            alert('❌ Ошибка загрузки');
+        }
+    }
+
+  # nginx.conf
+  nginx.conf: |
+    server {
+        listen 80;
+        
+        charset utf-8;
+        root /usr/share/nginx/html;  # Корневая папка с файлами
+
+        location / {
+            try_files $uri $uri/ /index.html;  # Сначала ищет файл, потом index.html
+        }
+
+        # Отдача JS-файлов с правильным MIME-типом
+        location ~ \.js$ {
+            add_header Content-Type application/javascript;
+        }
+
+        # Отдача CSS (если понадобится)
+        location ~ \.css$ {
+            add_header Content-Type text/css;
+        }
+
+        # Запрет доступа к скрытым файлам (например, .env)
+        location ~ /\. {
+            deny all;
+        }
+
+        location /videos/ {
+            proxy_pass http://localhost:9000/videos/;
+            
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, PUT, POST, DELETE' always;
+            add_header 'Access-Control-Allow-Headers' '*' always;
+            
+            if ($request_method = OPTIONS) {
+                return 204;
+            }
+        }
+    }

@@ -2,52 +2,23 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: full-argo-access
-  namespace: argo  # Для Workflows
 rules:
 - apiGroups: ["argoproj.io"]
   resources: ["workflows", "workflowtaskresults", "workflowtasksets"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: argo-events-access
-  namespace: argo-events  # Для Events
-rules:
-- apiGroups: ["argoproj.io"]
-  resources: ["eventbus", "eventsources", "sensors"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: [""]
-  resources: ["pods", "services", "configmaps"]
-  verbs: ["get", "list", "create"]
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: argo-default-binding
-  namespace: argo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: full-argo-access
 subjects:
 - kind: ServiceAccount
-  name: operate-workflow-sa  # Используем специальный SA
-  namespace: argo-events
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: argo-events-binding
-  namespace: argo-events
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: argo-events-access
-subjects:
-- kind: ServiceAccount
-  name: operate-workflow-sa
-  namespace: argo-events
+  name: default
+  namespace: argo
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -55,13 +26,10 @@ metadata:
   name: argo-full-access
 rules:
 - apiGroups: ["argoproj.io"]
-  resources: ["workflows", "workflowtaskresults", "workflowtasksets", "eventbus", "eventsources", "sensors"]
+  resources: ["workflows", "workflowtaskresults", "workflowtasksets"]
   verbs: ["*"]
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "services", "configmaps", "secrets"]
-  verbs: ["*"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
+  resources: ["pods", "pods/log"]
   verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -74,5 +42,5 @@ roleRef:
   name: argo-full-access
 subjects:
 - kind: ServiceAccount
-  name: operate-workflow-sa
-  namespace: argo-events
+  name: default
+  namespace: argo
