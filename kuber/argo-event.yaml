@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: video-processing-events
+  namespace: argo-events
+  labels:
+    app.kubernetes.io/part-of: argo-events
+spec:
+  template:
+    metadata:
+      annotations:
+        eventbus.argoproj.io/nats-connection-timeout: "10s"  # Увеличьте таймаут
+        eventbus.argoproj.io/nats-max-reconnects: "100" 
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+    type: ClusterIP 
+  http:
+    video-processing:
+      port: "12000"
+      endpoint: /video-processing
+      method: POST

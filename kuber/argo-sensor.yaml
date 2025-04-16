@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: video-processing-sensor
+  namespace: argo-events  # Должен совпадать с namespace EventSource
+spec:
+  template:
+    serviceAccountName: operate-workflow-sa
+  dependencies:
+    - name: video-processing-dep
+      eventSourceName: video-processing-events
+      eventName: video-processing
+      eventBusName: default
+  triggers:
+    - template:
+        name: video-processing-trigger
+        argoWorkflow:
+          group: argoproj.io
+          version: v1alpha1
+          resource: workflows
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: video-processing-
+                namespace: argo  # Namespace, где будут создаваться Workflows
+              spec:
+                entrypoint: main
+                arguments:
+                  parameters:
+                    - name: video_path
+                      value: "{{.inputs.parameters.video_path}}"
+                    - name: uuid
+                      value: "{{.inputs.parameters.uuid}}"
+                    - name: preset
+                      value: "{{.inputs.parameters.preset}}"
+                    - name: skip_processing
+                      value: "{{.inputs.parameters.skip_processing}}"
+                volumes:
+                  - name: workspace
+                    emptyDir: {}
+          parameters:
+            - src:
+                dependencyName: video-processing-dep
+                dataKey: body.video_path
+              dest: inputs.parameters.video_path
+            - src:
+                dependencyName: video-processing-dep
+                dataKey: body.uuid
+              dest: inputs.parameters.uuid
+            - src:
+                dependencyName: video-processing-dep
+                dataKey: body.preset
+              dest: inputs.parameters.preset
+            - src:
+                dependencyName: video-processing-dep
+                dataKey: body.skip_processing
+              dest: inputs.parameters.skip_processing

@@ -32,9 +32,30 @@ helm install argo-workflows argo/argo-workflows \
   --create-namespace \
   --set "server.extraArgs={--auth-mode=server}"
 
+kubectl create namespace argo-events
 kubectl apply -f kuber/ffmpeg-templates.yaml -n argo
 
-kubectl apply -f kuber/roles.yaml
+# Устанавливаем Argo Events (минимальная настройка)
+helm install argo-events argo/argo-events \
+  -n argo-events \
+  --create-namespace \
+  --set controller.enabled=true \
+  --set eventbus.install=true \
+  --set eventbus.native.enabled=true \
+  --set eventsources.enabled=false \
+  --set sensors.enabled=false \
+  --set webhook.enabled=false   
+
+kubectl apply -n argo-events -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operate-workflow-sa
+  namespace: argo-events
+EOF
+
+kubectl apply -f kuber/argo-event.yaml -n argo-events
+kubectl apply -f kuber/argo-sensor.yaml -n argo-events
 
 kubectl rollout restart deployment argo-workflows-server -n argo
 kubectl rollout restart deployment argo-workflows-workflow-controller -n argo

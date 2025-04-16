@@ -35,11 +35,11 @@ check_status "Registry (port 5000)"
 export PATH=$PATH:$HOME/minio-binaries/
 mc alias set minio http://localhost:9000 minioadmin minioadmin
 mc mb minio/videos
+mc mb minio/video-files
 mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
 mc admin service restart minio
 mc event add minio/videos arn:minio:sqs::service:webhook --event put
 
-mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
 nohup kubectl port-forward -n default svc/fastapi-service 8000:8000 &
 check_status "Fastapi port 8000"
 

@@ -55,7 +55,7 @@ spec:
             echo "#EXT-X-VERSION:3" >> /tmp/master.m3u8
             
             # Получаем только .m3u8 файлы и обрабатываем их
-            mc find minio/videos/{{inputs.parameters.uuid}}/ --name "*.m3u8" --print0 | while IFS= read -r -d '' file; do
+            mc find minio/video-files/{{inputs.parameters.uuid}}/ --name "*.m3u8" --print0 | while IFS= read -r -d '' file; do
               filename=$(basename "$file")
               
               # Определяем качество по имени файла
@@ -93,7 +93,7 @@ spec:
             done
             
             # Загружаем мастер-плейлист в MinIO
-            mc cp /tmp/master.m3u8 minio/videos/{{inputs.parameters.uuid}}/master.m3u8
+            mc cp /tmp/master.m3u8 minio/video-files/{{inputs.parameters.uuid}}/master.m3u8
     
     - name: notify-backend
       container:
