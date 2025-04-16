@@ -19,6 +19,8 @@ kubectl create secret generic minio-credentials \
   --from-literal=secretkey=minioadmin \
   --from-literal=endpoint=
 
+kubectl wait --for=condition=available deployment/minio -n minio --timeout=120s
+
 # Добавляем репозиторий Argo
 helm repo add argo https://argoproj.github.io/argo-helm
 
@@ -54,6 +56,7 @@ check_status "Registry (port 5000)"
 nohup minikube dashboard &
 check_status "Minikube Dashboard"
 
+sleep 5
 mc alias set kubemc http://localhost:9000 minioadmin minioadmin
 mc mb kubemc/videos
 
