@@ -8,9 +8,8 @@ spec:
     serviceAccountName: operate-workflow-sa
   dependencies:
     - name: video-processing-dep
-      eventSourceName: video-processing-events
+      eventSourceName: webhook
       eventName: video-processing
-      eventBusName: default
   triggers:
     - template:
         name: video-processing-trigger
