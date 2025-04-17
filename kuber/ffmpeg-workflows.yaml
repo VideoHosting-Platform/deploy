@@ -1,7 +1,8 @@
 apiVersion: argoproj.io/v1alpha1
-kind: Workflow
+kind: WorkflowTemplate
 metadata:
-  generateName: video-processing-
+  name: video-processing-
+  namespace: argo
 spec:
   entrypoint: main
   arguments:
@@ -9,8 +10,6 @@ spec:
       - name: video_path #?
       - name: uuid
       - name: preset
-      - name: skip_processing
-        value: "false"  # По умолчанию выполняем все шаги
   volumes:
     - name: workspace
       emptyDir: {}
@@ -22,7 +21,6 @@ spec:
             templateRef:
               name: video-processing-templates
               template: "process-{{workflow.parameters.preset}}"
-            when: "{{workflow.parameters.skip_processing}} == false"
             arguments:  # ← Явно передаём параметры в шаблон
               parameters:
                 - name: video_path  # Имя параметра в шаблоне

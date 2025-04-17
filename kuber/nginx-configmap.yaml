@@ -70,6 +70,9 @@ data:
               }),
           });
 
+          const backendUrl = response.url.replace('/api/generate-presigned-url', '');
+          console.log(backendUrl);
+
           if (!response.ok) {
               throw new Error('Ошибка при получении URL для загрузки');
           }
@@ -79,39 +82,12 @@ data:
           console.log(presignedUrl);
 
           const uploadResponse = await fetch(presignedUrl, {
-              method: 'PUT',
-              body: file,
-              headers: { 'Content-Type': "video/mp4" },
-          });
-
-          // Используем XMLHttpRequest вместо fetch для отслеживания прогресса
-          return new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest();
-              
-              xhr.upload.addEventListener('progress', (event) => {
-                  if (event.lengthComputable) {
-                      const percentComplete = (event.loaded / event.total) * 100;
-                      progressBar.value = percentComplete;
-                      progressText.textContent = `${Math.round(percentComplete)}%`;
-                  }
-              });
-
-              xhr.addEventListener('load', () => {
-                  if (xhr.status >= 200 && xhr.status < 300) {
-                      alert('✅ Файл успешно загружен!');
-                      resolve(xhr.response);
-                  } else {
-                      reject(new Error('Ошибка загрузки'));
-                  }
-              });
-
-              xhr.addEventListener('error', () => {
-                  reject(new Error('Ошибка сети'));
-              });
-
-              xhr.open('PUT', presignedUrl, true);
-              xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-              xhr.send(file);
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': "video/mp4",
+                    'Host': backendUrl,
+                },
           });
       } catch (error) {
           alert(`❌ ${error.message}`);
@@ -172,7 +148,8 @@ data:
             proxy_http_version 1.1;
             
             # Подмена MinIO URL
-            sub_filter 'http://minio.minio.svc.cluster.local:9000' '/minio';
+                    # Подменяем внутренний адрес MinIO на публичный NodePort
+            sub_filter 'http://minio.minio.svc.cluster.local:9000' 'http://$host:30090';
             sub_filter_once off;
             sub_filter_types application/json;
         }
@@ -182,9 +159,12 @@ data:
                 # Безопасность
             client_max_body_size 0;
             proxy_request_buffering off;
+
+            access_log /var/log/nginx/minio_access.log main;
+            error_log /var/log/nginx/minio_error.log notice;
             
             # Проксирование
-            proxy_pass http://minio.minio.svc.cluster.local:9000;
+            proxy_pass http://minio.minio.svc.cluster.local:9000$uri$is_args$args;
             proxy_http_version 1.1;
             
             # Заголовки
