@@ -29,70 +29,54 @@ data:
     <body>
         <input type="file" id="videoUpload" accept="video/*">
         <button onclick="uploadVideo()">Upload</button>
-        <div id="progressContainer" style="width: 100%; margin-top: 10px; display: none;">
-            <progress id="uploadProgress" value="0" max="100" style="width: 100%;"></progress>
-            <span id="progressText">0%</span>
+        <div id="progressBar">
+            <div id="progressBarFill">0%</div>
         </div>
+        <div id="status"></div>
 
+        <script src="https://cdn.jsdelivr.net/npm/aws-sdk@2.1498.0/dist/aws-sdk.min.js"></script>
         <script src="upload.js"></script>
     </body>
     </html>
 
   # upload.js
   upload.js: |
-    const API_BASE_URL = window.location.origin + '/api';
-    const MINIO_BASE_URL = window.location.origin + '/minio';
+    const AWS = window.AWS;
+
+    // Настройка клиента (указываем MinIO endpoint)
+    const s3 = new AWS.S3({
+        endpoint: "http://192.168.49.2:30090/",  // Адрес MinIO
+        accessKeyId: "minioadmin",     // Логин MinIO
+        secretAccessKey: "minioadmin", // Пароль MinIO
+        s3ForcePathStyle: true,             // Обязательно для MinIO
+        signatureVersion: "v4",             // Требуется для MinIO
+        region: "us-east-1",                // Любой регион (MinIO игнорирует)
+    });
 
     async function uploadVideo() {
-      const fileInput = document.getElementById('videoUpload');
-      const file = fileInput.files[0];
-      const progressContainer = document.getElementById('progressContainer');
-      const progressBar = document.getElementById('uploadProgress');
-      const progressText = document.getElementById('progressText');
-      
-      if (!file) {
-          alert('Выберите файл!');
-          return;
-      }
+        const fileInput = document.getElementById('videoUpload');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert('Выберите файл!');
+            return;
+        }
 
-      try {
-          // Показываем прогресс-бар
-          progressContainer.style.display = 'block';
-          progressBar.value = 0;
-          progressText.textContent = '0%';
+        const params = {
+            Bucket: "videos",
+            Key: `${file.name}`,
+            Body: file,
+            ContentType: file.type,
+        };
 
-          const response = await fetch('api/generate-presigned-url', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  fileName: file.name,
-                  fileType: file.type,
-              }),
-          });
-
-          const backendUrl = response.url.replace('/api/generate-presigned-url', '');
-          console.log(backendUrl);
-
-          if (!response.ok) {
-              throw new Error('Ошибка при получении URL для загрузки');
-          }
-
-          const data = await response.json();
-          const presignedUrl = data.presigned_url;
-          console.log(presignedUrl);
-
-          const uploadResponse = await fetch(presignedUrl, {
-                method: 'PUT',
-                body: file,
-                headers: {
-                    'Content-Type': "video/mp4",
-                    'Host': backendUrl,
-                },
-          });
-      } catch (error) {
-          alert(`❌ ${error.message}`);
-          progressContainer.style.display = 'none';
-      }
+        try {
+            const data = await s3.upload(params).promise();
+            console.log("Файл загружен:", data.Location);
+            return data.Location;
+        } catch (err) {
+            console.error("Ошибка загрузки:", err);
+            throw err;
+        }
     }
   
   nginx.conf: |

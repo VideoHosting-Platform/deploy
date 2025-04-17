@@ -2,7 +2,7 @@ const AWS = window.AWS;
 
 // Настройка клиента (указываем MinIO endpoint)
 const s3 = new AWS.S3({
-    endpoint: "http://localhost:9000",  // Адрес MinIO
+    endpoint: "/minio",  // Адрес MinIO
     accessKeyId: "minioadmin",     // Логин MinIO
     secretAccessKey: "minioadmin", // Пароль MinIO
     s3ForcePathStyle: true,             // Обязательно для MinIO
@@ -18,7 +18,7 @@ async function uploadVideo() {
         alert('Выберите файл!');
         return;
     }
-    
+
     const params = {
         Bucket: "videos",
         Key: `${file.name}`,
