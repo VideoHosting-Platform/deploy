@@ -29,10 +29,10 @@ data:
     <body>
         <input type="file" id="videoUpload" accept="video/*">
         <button onclick="uploadVideo()">Upload</button>
-        <div id="progressBar">
-            <div id="progressBarFill">0%</div>
+        <div id="progressContainer" style="width: 100%; margin-top: 10px; display: none;">
+            <progress id="uploadProgress" value="0" max="100" style="width: 100%;"></progress>
+            <span id="progressText">0%</span>
         </div>
-        <div id="status"></div>
 
         <script src="upload.js"></script>
     </body>
@@ -40,84 +40,168 @@ data:
 
   # upload.js
   upload.js: |
+    const API_BASE_URL = window.location.origin + '/api';
+    const MINIO_BASE_URL = window.location.origin + '/minio';
+
     async function uploadVideo() {
-        const fileInput = document.getElementById('videoUpload');
-        const file = fileInput.files[0];
-        
-        if (!file) {
-            alert('Выберите файл!');
-            return;
-        }
+      const fileInput = document.getElementById('videoUpload');
+      const file = fileInput.files[0];
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('uploadProgress');
+      const progressText = document.getElementById('progressText');
+      
+      if (!file) {
+          alert('Выберите файл!');
+          return;
+      }
 
-        const response = await fetch('http://localhost:8000/generate-presigned-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fileName: file.name,
-                fileType: file.type,
-            }),
-        });
+      try {
+          // Показываем прогресс-бар
+          progressContainer.style.display = 'block';
+          progressBar.value = 0;
+          progressText.textContent = '0%';
 
-        if (!response.ok) {
-            alert('Ошибка при получении URL для загрузки');
-            return;
-        }
+          const response = await fetch('api/generate-presigned-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  fileName: file.name,
+                  fileType: file.type,
+              }),
+          });
 
-        const data = await response.json();     // 2. Парсим JSON
-        console.log("Распарсенный ответ:", data); // 3. Смотрим, что внутри
+          if (!response.ok) {
+              throw new Error('Ошибка при получении URL для загрузки');
+          }
 
-        const presignedUrl = data.presigned_url;
-        console.log("URL", presignedUrl);
+          const data = await response.json();
+          const presignedUrl = data.presigned_url;
+          console.log(presignedUrl);
 
-        const uploadResponse = await fetch(presignedUrl, {
-            method: 'PUT',
-            body: file,
-            headers: { 'Content-Type': "video/mp4" },
-        });
+          const uploadResponse = await fetch(presignedUrl, {
+              method: 'PUT',
+              body: file,
+              headers: { 'Content-Type': "video/mp4" },
+          });
 
-        if (uploadResponse.ok) {
-            alert('✅ Файл успешно загружен!');
-        } else {
-            alert('❌ Ошибка загрузки');
-        }
+          // Используем XMLHttpRequest вместо fetch для отслеживания прогресса
+          return new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              
+              xhr.upload.addEventListener('progress', (event) => {
+                  if (event.lengthComputable) {
+                      const percentComplete = (event.loaded / event.total) * 100;
+                      progressBar.value = percentComplete;
+                      progressText.textContent = `${Math.round(percentComplete)}%`;
+                  }
+              });
+
+              xhr.addEventListener('load', () => {
+                  if (xhr.status >= 200 && xhr.status < 300) {
+                      alert('✅ Файл успешно загружен!');
+                      resolve(xhr.response);
+                  } else {
+                      reject(new Error('Ошибка загрузки'));
+                  }
+              });
+
+              xhr.addEventListener('error', () => {
+                  reject(new Error('Ошибка сети'));
+              });
+
+              xhr.open('PUT', presignedUrl, true);
+              xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+              xhr.send(file);
+          });
+      } catch (error) {
+          alert(`❌ ${error.message}`);
+          progressContainer.style.display = 'none';
+      }
+    }
+  
+  nginx.conf: |
+    user  nginx;
+    worker_processes  auto;
+
+    error_log  /var/log/nginx/error.log notice;
+    pid        /var/run/nginx.pid;
+
+    events {
+        worker_connections  1024;
+    }
+
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log  /var/log/nginx/access.log  main;
+
+        sendfile        on;
+        keepalive_timeout  65;
+
+        # Критически важные настройки для больших файлов
+        client_max_body_size 10G;
+        proxy_request_buffering off;
+        proxy_buffering off;
+
+        include /etc/nginx/conf.d/*.conf;
     }
 
   # nginx.conf
-  nginx.conf: |
+  default.conf: |
     server {
         listen 80;
-        
+        server_name _;
         charset utf-8;
-        root /usr/share/nginx/html;  # Корневая папка с файлами
 
+        # Статика
+        root /usr/share/nginx/html;
         location / {
-            try_files $uri $uri/ /index.html;  # Сначала ищет файл, потом index.html
+            try_files $uri $uri/ /index.html;
         }
 
-        # Отдача JS-файлов с правильным MIME-типом
-        location ~ \.js$ {
-            add_header Content-Type application/javascript;
-        }
-
-        # Отдача CSS (если понадобится)
-        location ~ \.css$ {
-            add_header Content-Type text/css;
-        }
-
-        # Запрет доступа к скрытым файлам (например, .env)
-        location ~ /\. {
-            deny all;
-        }
-
-        location /videos/ {
-            proxy_pass http://localhost:9000/videos/;
+        # API
+        location /api/ {
+            proxy_pass http://fastapi-service.default.svc.cluster.local:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_http_version 1.1;
             
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, PUT, POST, DELETE' always;
-            add_header 'Access-Control-Allow-Headers' '*' always;
+            # Подмена MinIO URL
+            sub_filter 'http://minio.minio.svc.cluster.local:9000' '/minio';
+            sub_filter_once off;
+            sub_filter_types application/json;
+        }
+
+        # MinIO (особые настройки!)
+        location ~ ^/minio(/|$) {
+                # Безопасность
+            client_max_body_size 0;
+            proxy_request_buffering off;
             
-            if ($request_method = OPTIONS) {
-                return 204;
-            }
+            # Проксирование
+            proxy_pass http://minio.minio.svc.cluster.local:9000;
+            proxy_http_version 1.1;
+            
+            # Заголовки
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # Таймауты
+            proxy_connect_timeout 600s;
+            proxy_send_timeout 600s;
+            proxy_read_timeout 600s;
+            send_timeout 600s;
+            
+            # Дополнительные параметры
+            proxy_next_upstream off;
+            proxy_set_header Connection "";
+            chunked_transfer_encoding off;
         }
     }

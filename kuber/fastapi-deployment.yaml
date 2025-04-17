@@ -15,7 +15,7 @@ spec:
       containers:
       - name: fastapi-app
         # image: fastapi-app  # Используем локальный образ
-        image: andrewsmooth/fastapi-app:6.0  # registry
+        image: andrewsmooth/fastapi-app:7.1  # registry
         # imagePullPolicy: Never  # Не тянуть из внешнего репозитория
         ports:
         - containerPort: 8000
