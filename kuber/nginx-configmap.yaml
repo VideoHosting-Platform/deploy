@@ -1,207 +1,171 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config
+    name: nginx-config
 data:
-  # index.html
-  index.html: |
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Upload Video to MinIO</title>
-        <style>
-            #progressBar {
-                width: 100%;
-                background-color: #f3f3f3;
-                margin-top: 10px;
-            }
-            #progressBarFill {
-                height: 20px;
-                background-color: #4CAF50;
-                width: 0%;
-                text-align: center;
-                line-height: 20px;
-                color: white;
-            }
-        </style>
-    </head>
-    <body>
-        <input type="file" id="videoUpload" accept="video/*">
-        <button onclick="uploadVideo()">Upload</button>
-        <div id="progressContainer" style="width: 100%; margin-top: 10px; display: none;">
-            <progress id="uploadProgress" value="0" max="100" style="width: 100%;"></progress>
-            <span id="progressText">0%</span>
-        </div>
+# index.html
+    index.html: |
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Upload Video to MinIO</title>
+            <style>
+                #progressBar {
+                    width: 100%;
+                    background-color: #f3f3f3;
+                    margin-top: 10px;
+                }
+                #progressBarFill {
+                    height: 20px;
+                    background-color: #4CAF50;
+                    width: 0%;
+                    text-align: center;
+                    line-height: 20px;
+                    color: white;
+                }
+            </style>
+        </head>
+        <body>
+            <input type="file" id="videoUpload" accept="video/*">
+            <button onclick="uploadVideo()">Upload</button>
+            <div id="progressBar">
+                <div id="progressBarFill">0%</div>
+            </div>
+            <div id="status"></div>
 
-        <script src="upload.js"></script>
-    </body>
-    </html>
+            <script src="https://cdn.jsdelivr.net/npm/aws-sdk@2.1498.0/dist/aws-sdk.min.js"></script>
+            <script src="upload.js"></script>
+        </body>
+        </html>
 
-  # upload.js
-  upload.js: |
-    const API_BASE_URL = window.location.origin + '/api';
-    const MINIO_BASE_URL = window.location.origin + '/minio';
+    # upload.js
+    upload.js: |
+        const AWS = window.AWS;
 
-    async function uploadVideo() {
-      const fileInput = document.getElementById('videoUpload');
-      const file = fileInput.files[0];
-      const progressContainer = document.getElementById('progressContainer');
-      const progressBar = document.getElementById('uploadProgress');
-      const progressText = document.getElementById('progressText');
-      
-      if (!file) {
-          alert('Выберите файл!');
-          return;
-      }
+        // Настройка клиента (указываем MinIO endpoint)
+        const s3 = new AWS.S3({
+            endpoint: "http://192.168.49.2:30090/",  // Адрес MinIO
+            accessKeyId: "minioadmin",     // Логин MinIO
+            secretAccessKey: "minioadmin", // Пароль MinIO
+            s3ForcePathStyle: true,             // Обязательно для MinIO
+            signatureVersion: "v4",             // Требуется для MinIO
+            region: "us-east-1",                // Любой регион (MinIO игнорирует)
+        });
 
-      try {
-          // Показываем прогресс-бар
-          progressContainer.style.display = 'block';
-          progressBar.value = 0;
-          progressText.textContent = '0%';
-
-          const response = await fetch('api/generate-presigned-url', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  fileName: file.name,
-                  fileType: file.type,
-              }),
-          });
-
-          if (!response.ok) {
-              throw new Error('Ошибка при получении URL для загрузки');
-          }
-
-          const data = await response.json();
-          const presignedUrl = data.presigned_url;
-          console.log(presignedUrl);
-
-          const uploadResponse = await fetch(presignedUrl, {
-              method: 'PUT',
-              body: file,
-              headers: { 'Content-Type': "video/mp4" },
-          });
-
-          // Используем XMLHttpRequest вместо fetch для отслеживания прогресса
-          return new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest();
-              
-              xhr.upload.addEventListener('progress', (event) => {
-                  if (event.lengthComputable) {
-                      const percentComplete = (event.loaded / event.total) * 100;
-                      progressBar.value = percentComplete;
-                      progressText.textContent = `${Math.round(percentComplete)}%`;
-                  }
-              });
-
-              xhr.addEventListener('load', () => {
-                  if (xhr.status >= 200 && xhr.status < 300) {
-                      alert('✅ Файл успешно загружен!');
-                      resolve(xhr.response);
-                  } else {
-                      reject(new Error('Ошибка загрузки'));
-                  }
-              });
-
-              xhr.addEventListener('error', () => {
-                  reject(new Error('Ошибка сети'));
-              });
-
-              xhr.open('PUT', presignedUrl, true);
-              xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-              xhr.send(file);
-          });
-      } catch (error) {
-          alert(`❌ ${error.message}`);
-          progressContainer.style.display = 'none';
-      }
-    }
-  
-  nginx.conf: |
-    user  nginx;
-    worker_processes  auto;
-
-    error_log  /var/log/nginx/error.log notice;
-    pid        /var/run/nginx.pid;
-
-    events {
-        worker_connections  1024;
-    }
-
-    http {
-        include       /etc/nginx/mime.types;
-        default_type  application/octet-stream;
-
-        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                          '$status $body_bytes_sent "$http_referer" '
-                          '"$http_user_agent" "$http_x_forwarded_for"';
-
-        access_log  /var/log/nginx/access.log  main;
-
-        sendfile        on;
-        keepalive_timeout  65;
-
-        # Критически важные настройки для больших файлов
-        client_max_body_size 10G;
-        proxy_request_buffering off;
-        proxy_buffering off;
-
-        include /etc/nginx/conf.d/*.conf;
-    }
-
-  # nginx.conf
-  default.conf: |
-    server {
-        listen 80;
-        server_name _;
-        charset utf-8;
-
-        # Статика
-        root /usr/share/nginx/html;
-        location / {
-            try_files $uri $uri/ /index.html;
-        }
-
-        # API
-        location /api/ {
-            proxy_pass http://fastapi-service.default.svc.cluster.local:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_http_version 1.1;
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoUpload');
+            const file = fileInput.files[0];
             
-            # Подмена MinIO URL
-            sub_filter 'http://minio.minio.svc.cluster.local:9000' '/minio';
-            sub_filter_once off;
-            sub_filter_types application/json;
+            if (!file) {
+                alert('Выберите файл!');
+                return;
+            }
+
+            const params = {
+                Bucket: "videos",
+                Key: `${file.name}`,
+                Body: file,
+                ContentType: file.type,
+            };
+
+            try {
+                const data = await s3.upload(params).promise();
+                console.log("Файл загружен:", data.Location);
+                return data.Location;
+            } catch (err) {
+                console.error("Ошибка загрузки:", err);
+                throw err;
+            }
         }
 
-        # MinIO (особые настройки!)
-        location ~ ^/minio(/|$) {
-                # Безопасность
-            client_max_body_size 0;
+    nginx.conf: |
+        user  nginx;
+        worker_processes  auto;
+
+        error_log  /var/log/nginx/error.log notice;
+        pid        /var/run/nginx.pid;
+
+        events {
+            worker_connections  1024;
+        }
+
+        http {
+            include       /etc/nginx/mime.types;
+            default_type  application/octet-stream;
+
+            log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                            '$status $body_bytes_sent "$http_referer" '
+                            '"$http_user_agent" "$http_x_forwarded_for"';
+
+            access_log  /var/log/nginx/access.log  main;
+
+            sendfile        on;
+            keepalive_timeout  65;
+
+            # Критически важные настройки для больших файлов
+            client_max_body_size 10G;
             proxy_request_buffering off;
-            
-            # Проксирование
-            proxy_pass http://minio.minio.svc.cluster.local:9000;
-            proxy_http_version 1.1;
-            
-            # Заголовки
-            proxy_set_header Host $http_host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            
-            # Таймауты
-            proxy_connect_timeout 600s;
-            proxy_send_timeout 600s;
-            proxy_read_timeout 600s;
-            send_timeout 600s;
-            
-            # Дополнительные параметры
-            proxy_next_upstream off;
-            proxy_set_header Connection "";
-            chunked_transfer_encoding off;
+            proxy_buffering off;
+
+            include /etc/nginx/conf.d/*.conf;
         }
-    }
+
+    # nginx.conf
+    default.conf: |
+        server {
+            listen 80;
+            server_name _;
+            charset utf-8;
+
+            # Статика
+            root /usr/share/nginx/html;
+            location / {
+                try_files $uri $uri/ /index.html;
+            }
+
+            # API
+            location /api/ {
+                proxy_pass http://fastapi-service.default.svc.cluster.local:8000/;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_http_version 1.1;
+                
+                # Подмена MinIO URL
+                        # Подменяем внутренний адрес MinIO на публичный NodePort
+                sub_filter 'http://minio.minio.svc.cluster.local:9000' 'http://$host:30090';
+                sub_filter_once off;
+                sub_filter_types application/json;
+            }
+
+            # MinIO (особые настройки!)
+            location ~ ^/minio(/|$) {
+                    # Безопасность
+                client_max_body_size 0;
+                proxy_request_buffering off;
+
+                access_log /var/log/nginx/minio_access.log main;
+                error_log /var/log/nginx/minio_error.log notice;
+                
+                # Проксирование
+                proxy_pass http://minio.minio.svc.cluster.local:9000$uri$is_args$args;
+                proxy_http_version 1.1;
+                
+                # Заголовки
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                
+                # Таймауты
+                proxy_connect_timeout 600s;
+                proxy_send_timeout 600s;
+                proxy_read_timeout 600s;
+                send_timeout 600s;
+                
+                # Дополнительные параметры
+                proxy_next_upstream off;
+                proxy_set_header Connection "";
+                chunked_transfer_encoding off;
+            }
+        }

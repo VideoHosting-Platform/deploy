@@ -56,12 +56,15 @@ metadata:
   name: minio
   namespace: minio  # Указываем namespace
 spec:
+  type: NodePort
   ports:
     - port: 9000  # Внешний порт для S3 API
       targetPort: 9000
+      nodePort: 30090
       name: s3
     - port: 9001  # Внешний порт для консоли
       targetPort: 9001
+      nodePort: 30091
       name: console
   selector:
     app: minio
