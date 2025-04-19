@@ -112,3 +112,5 @@ mc alias set minio http://localhost:9000 minioadmin minioadmin
 
 Правильная команда:
 mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
+
+kubectl -n argo get rolebinding,role -o wide
