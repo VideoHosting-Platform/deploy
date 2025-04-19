@@ -13,20 +13,23 @@ spec:
         - /bin/sh
         - -c
         - |
-          # Ждем доступности MinIO
           until mc alias set minio http://minio:9000 minioadmin minioadmin; do
             echo "Ожидание MinIO...";
             sleep 5;
           done;
 
-          # Настройка webhook с именем 'webhook1'
+          # 2. Настраиваем webhook
           mc admin config set minio notify_webhook:webhook1 \
-            endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook" \
-            queue_dir="/events" \
-            queue_limit="10000";
+            endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
 
-          # Добавляем событие с соответствующим ARN
-          mc event add minio/videos arn:minio:sqs::webhook1:webhook --event put;
+          sleep 15
+
+          mc event add minio/videos arn:minio:sqs::1:webhook --event put || \
+          mc admin bucket notify add minio/videos \
+           http://fastapi-service.default.svc.cluster.local:8000/webhook --events put;
+
+          echo "Список событий:";
+          mc event list minio/videos;
           
           echo "Настройка завершена успешно";
       restartPolicy: Never
