@@ -1,0 +1,76 @@
+# Основные настройки MinIO
+mode: standalone  # или standalone
+replicas: 1
+persistence:
+  enabled: false #?
+
+resources:
+  requests:
+    memory: 1Gi
+
+# Настройки доступа
+rootUser: minioadmin
+rootPassword: minioadmin
+
+# Настройки уведомлений (нотификаций)
+notifications:
+  webhook:
+    service:  # Название конфигурации (произвольное)
+      enable: true
+      endpoint: "http://fastapi-service.default.svc.cluster.local:8000/webhook"
+      queueDir: "/events"  # Директория для очереди событий
+      queueLimit: "10000"
+
+# Инициализация бакетов
+buckets:
+  - name: "videos"
+    policy: "public"  # none|download|upload|public
+    purge: false      # разрешить удаление
+    notifications:
+      - id: video-upload-notification
+        arn: "arn:minio:sqs::service:webhook"
+        events: ["put"]
+  - name: "video-files"
+    policy: "public"
+
+service:
+  type: NodePort
+  # Для API порта (9000)
+  port: "9000"
+  nodePort: 30090
+
+consoleService:
+  type: NodePort
+  port: "9001"
+  nodePort: 30091
+
+
+# # Настройка событий (Event Notifications)
+# notifications:
+#   webhook:
+#     - endpoint: "http://webhook-service:8080"
+#       queueDir: "/events"
+#       queueLimit: "10000"
+#       events:
+#         - "put"
+#         - "delete"
+#       prefixFilter: "images/"
+#       suffixFilter: ".jpg"
+
+# # Init Container для дополнительных команд
+# initContainers:
+#   - name: "minio-setup"
+#     image: "minio/mc:latest"
+#     command:
+#       - "/bin/sh"
+#       - "-c"
+#       - |
+#         # Ждем доступности MinIO
+#         until (mc alias set minio-cluster http://{{ .Release.Name }}-minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}); do
+#           echo "Ожидание MinIO...";
+#           sleep 5;
+#         done;
+        
+#         # Дополнительные команды (пример)
+#         mc admin config set minio-cluster notify_webhook:1 endpoint="http://webhook-service:8080" queue_dir="/events" queue_limit="10000";
+#         mc admin service restart minio-cluster;

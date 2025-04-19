@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Директории
-LOCAL_DIR="tmp/videos"
-MINIO_BUCKET="kubemc/videos"
+LOCAL_DIR="/tmp/videos"
+VIDEO_BUCKET="videos"
+HLS_BUCKET="video-files"
 mkdir -p $LOCAL_DIR
 
 # Скачивание видео в 4K 2K 1K 720p 480p 360p 240p 144p
@@ -31,12 +32,16 @@ rm tmp/videos/bbb_sunflower_2160p_60fps_normal.mp4.zip
 wget https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm -P $LOCAL_DIR
 
 
-export PATH=$PATH:$HOME/minio-binaries/
-mc alias set minio http://localhost:9000 minioadmin minioadmin
+mc alias set kubemc http://localhost:9000 minioadmin minioadmin
 
 # Загрузка в MinIO
-mc mb $MINIO_BUCKET
-mc cp --recursive $LOCAL_DIR/ $MINIO_BUCKET
+mc mb kubemc/$VIDEO_BUCKET
+mc cp --recursive $LOCAL_DIR/ kubemc/$VIDEO_BUCKET
+
+mc mb kubemc/$HLS_BUCKET
+mc admin config set kubemc notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
+mc admin service restart minio
+mc event add $VIDEO_BUCKET arn:minio:sqs::service:webhook --event put
 
 echo "Видео успешно загружены в MinIO"
 

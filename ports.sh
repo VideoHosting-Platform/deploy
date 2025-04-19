@@ -9,19 +9,6 @@ check_status() {
   fi
 }
 
-export PATH=$PATH:$HOME/minio-binaries/
-# Проверяем, установлен ли mc (MinIO Client)
-if ! command -v mc &> /dev/null; then
-    echo "MinIO Client (mc) не найден. Установка..."
-    curl https://dl.min.io/client/mc/release/linux-amd64/mc \
-    --create-dirs \
-    -o $HOME/minio-binaries/mc
-    check_status "Установка mc"
-
-    chmod +x $HOME/minio-binaries/mc
-    export PATH=$PATH:$HOME/minio-binaries/
-    fi
-
 nohup kubectl -n argo port-forward svc/argo-workflows-server 2746:2746 &
 check_status "Argo Workflows Server (port 2746)"
 
@@ -38,9 +25,9 @@ export PATH=$PATH:$HOME/minio-binaries/
 mc alias set minio http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin
 mc mb minio/videos
 mc mb minio/video-files
-mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
-mc admin service restart minio
-mc event add minio/videos arn:minio:sqs::service:webhook --event put
+# mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
+# mc admin service restart minio
+# mc event add minio/videos arn:minio:sqs::service:webhook --event put
 
 nohup kubectl port-forward -n default svc/fastapi-service 8000:8000 &
 check_status "Fastapi port 8000"

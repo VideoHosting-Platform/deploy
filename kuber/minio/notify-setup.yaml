@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup-notifications
+  namespace: minio
+spec:
+  template:
+    spec:
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Ждем доступности MinIO
+          until mc alias set minio http://minio:9000 minioadmin minioadmin; do
+            echo "Ожидание MinIO...";
+            sleep 5;
+          done;
+
+          # Настройка webhook с именем 'webhook1'
+          mc admin config set minio notify_webhook:webhook1 \
+            endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook" \
+            queue_dir="/events" \
+            queue_limit="10000";
+
+          # Добавляем событие с соответствующим ARN
+          mc event add minio/videos arn:minio:sqs::webhook1:webhook --event put;
+          
+          echo "Настройка завершена успешно";
+      restartPolicy: Never
+  backoffLimit: 3
