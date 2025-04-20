@@ -24,6 +24,7 @@ helm install argo-workflows argo/argo-workflows \
   --set "server.extraArgs={--auth-mode=server}"
 
 kubectl apply -f kuber/ffmpeg-templates.yaml -n argo
+kubectl apply -f kuber/ffmpeg-workflows.yaml
 kubectl apply -f kuber/fastapi-deployment.yaml
 kubectl apply -f kuber/roles.yaml
 kubectl apply -f kuber/rbac.yaml

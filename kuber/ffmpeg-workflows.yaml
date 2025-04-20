@@ -7,7 +7,7 @@ spec:
   entrypoint: main
   arguments:
     parameters:
-      - name: video_path #?
+      - name: video_path
       - name: uuid
       - name: preset
   volumes:
@@ -21,11 +21,11 @@ spec:
             templateRef:
               name: video-processing-templates
               template: "process-{{workflow.parameters.preset}}"
-            arguments:  # ← Явно передаём параметры в шаблон
+            arguments:
               parameters:
-                - name: video_path  # Имя параметра в шаблоне
-                  value: "{{workflow.parameters.video_path}}"  # Берём из Workflow
-                - name: uuid       # Если нужно
+                - name: video_path
+                  value: "{{workflow.parameters.video_path}}"
+                - name: uuid
                   value: "{{workflow.parameters.uuid}}"
         - - name: generate-master
             template: generate-master
@@ -33,8 +33,12 @@ spec:
               parameters:
                 - name: uuid
                   value: "{{workflow.parameters.uuid}}"
-        # - - name: notify
-        #     template: notify-backend
+        - - name: notify
+            template: notify-backend
+            arguments:
+              parameters:
+                - name: uuid
+                  value: "{{workflow.parameters.uuid}}"
       
     - name: generate-master
       inputs:
@@ -94,6 +98,15 @@ spec:
             mc cp /tmp/master.m3u8 minio/video-files/{{inputs.parameters.uuid}}/master.m3u8
     
     - name: notify-backend
+      inputs:
+        parameters:
+          - name: uuid
       container:
         image: alpine/curl
-        command: ["curl", "-X", "POST", "http://fastapi-service.default.svc.cluster.local:8000/post-processing"]
+        command: ["sh", "-c"]
+        args:
+          - |
+            curl -X POST \
+              "http://fastapi-service.default.svc.cluster.local:8000/post-processing" \
+              -H "Content-Type: application/json" \
+              -d '{"video_uuid": "{{inputs.parameters.uuid}}"}'
