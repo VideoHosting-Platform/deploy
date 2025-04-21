@@ -17,7 +17,7 @@ notifications:
   webhook:
     service:  # Название конфигурации (произвольное)
       enable: true
-      endpoint: "http://fastapi-service.default.svc.cluster.local:8000/webhook"
+      endpoint: "http://fastapi-service.argo.svc.cluster.local:8000/webhook"
       queueDir: "/events"  # Директория для очереди событий
       queueLimit: "10000"
 

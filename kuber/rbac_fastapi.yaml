@@ -17,7 +17,7 @@ roleRef:
   name: full-argo-access
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: fastapi-external-sa
   namespace: argo
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -31,6 +31,20 @@ rules:
 - apiGroups: [""]
   resources: ["pods", "pods/log"]
   verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-fastapi-cluster-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argo-full-access
+subjects:
+- kind: ServiceAccount
+  name: fastapi-external-sa
+  namespace: argo
+  #---------
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

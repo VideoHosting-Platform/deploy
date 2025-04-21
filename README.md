@@ -48,7 +48,6 @@ bash run.sh
 Посмотреть все процессы: `ps aux | grep port-forward`    
 
 Завершить: `pkill -f "kubectl port-forward"` 
-   
 ### Создать и запустить воркфлоу из ffmpeg-workflows.yaml:
 ```
 argo submit -n argo kuber/ffmpeg-workflows.yaml \

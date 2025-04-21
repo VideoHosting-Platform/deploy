@@ -6,12 +6,6 @@ VIDEO_BUCKET="videos"
 HLS_BUCKET="video-files"
 mkdir -p $LOCAL_DIR
 
-# Скачивание видео в 4K 2K 1K 720p 480p 360p 240p 144p
-# Требуемые форматы: mp4, mov, wmv, avi, avchd, flv, f4v, mkv, webm
-# Загружаются здесь: mp4, mov, avi, webm
-
-
-
 # 144p
 wget https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4 -P $LOCAL_DIR
 # 240p
@@ -32,23 +26,8 @@ rm tmp/videos/bbb_sunflower_2160p_60fps_normal.mp4.zip
 wget https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm -P $LOCAL_DIR
 
 
-mc alias set kubemc http://localhost:9000 minioadmin minioadmin
+mc alias set kubemc $(minikube service -n minio minio --url | head -n 1) minioadmin minioadmin
 
 # Загрузка в MinIO
-mc mb kubemc/$VIDEO_BUCKET
 mc cp --recursive $LOCAL_DIR/ kubemc/$VIDEO_BUCKET
-
-mc mb kubemc/$HLS_BUCKET
-mc admin config set kubemc notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
-mc admin service restart minio
-mc event add $VIDEO_BUCKET arn:minio:sqs::service:webhook --event put
-
 echo "Видео успешно загружены в MinIO"
-
-# # Скачиваем все видео файлы с сайта (используем wget)
-# wget -r -np -nd -A "*.mp4,*.avi,*.mov,*.mkv" https://download.blender.org/peach/bigbuckbunny_movies/
-
-# # Или если нужно скачать конкретные файлы:
-# wget https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_720p_stereo.ogg
-
-# # и т.д.

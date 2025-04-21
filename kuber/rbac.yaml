@@ -11,7 +11,7 @@ metadata:
   namespace: argo
 rules:
 - apiGroups: ["argoproj.io"]
-  resources: ["workflows", "workflowtaskresults", "workflowtasksets"]
+  resources: ["workflows", "workflowtaskresults", "workflowtasksets", "workflowtemplates"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["pods", "pods/log"]

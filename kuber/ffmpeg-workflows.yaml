@@ -107,6 +107,6 @@ spec:
         args:
           - |
             curl -X POST \
-              "http://fastapi-service.default.svc.cluster.local:8000/post-processing" \
+              "http://fastapi-service.argo.svc.cluster.local:8000/result" \
               -H "Content-Type: application/json" \
               -d '{"video_uuid": "{{inputs.parameters.uuid}}"}'

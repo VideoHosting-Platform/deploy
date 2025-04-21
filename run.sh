@@ -24,10 +24,11 @@ helm install argo-workflows argo/argo-workflows \
   --set "server.extraArgs={--auth-mode=server}"
 
 kubectl apply -f kuber/ffmpeg-templates.yaml -n argo
-kubectl apply -f kuber/ffmpeg-workflows.yaml
+kubectl apply -f kuber/ffmpeg-workflows.yaml -n argo
 kubectl apply -f kuber/fastapi-deployment.yaml
 kubectl apply -f kuber/roles.yaml
 kubectl apply -f kuber/rbac.yaml
+kubectl apply -f kuber/rbac_fastapi.yaml
 
 kubectl apply -f kuber/nginx/nginx-configmap.yaml
 kubectl apply -f kuber/nginx/nginx-deployment.yaml
@@ -38,7 +39,7 @@ minikube addons enable registry
 
 mc alias set minio $(minikube service -n minio minio --url | head -n 1) minioadmin minioadmin
 sleep 3
-mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.default.svc.cluster.local:8000/webhook"
+mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.argo.svc.cluster.local:8000/webhook"
 mc admin service restart minio
 sleep 3
 mc event add minio/videos arn:minio:sqs::service:webhook --event put
