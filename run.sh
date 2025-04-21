@@ -35,13 +35,14 @@ kubectl apply -f kuber/nginx/nginx-deployment.yaml
 kubectl apply -f kuber/nginx/nginx-service.yaml
 
 
-minikube addons enable registry
+# minikube addons enable registry
 
 mc alias set minio $(minikube service -n minio minio --url | head -n 1) minioadmin minioadmin
-sleep 3
+kubectl wait --for=condition=Ready -l app=fastapi-app -n argo pod --timeout=120s
+sleep 10
 mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.argo.svc.cluster.local:8000/webhook"
 mc admin service restart minio
-sleep 3
+sleep 10 
 mc event add minio/videos arn:minio:sqs::service:webhook --event put
 
 echo "Все сервисы запущены в фоне. 🚀"
