@@ -1,3 +1,15 @@
+const AWS = window.AWS;
+
+// Настройка клиента (указываем MinIO endpoint)
+const s3 = new AWS.S3({
+    endpoint: "/minio",  // Адрес MinIO
+    accessKeyId: "minioadmin",     // Логин MinIO
+    secretAccessKey: "minioadmin", // Пароль MinIO
+    s3ForcePathStyle: true,             // Обязательно для MinIO
+    signatureVersion: "v4",             // Требуется для MinIO
+    region: "us-east-1",                // Любой регион (MinIO игнорирует)
+});
+
 async function uploadVideo() {
     const fileInput = document.getElementById('videoUpload');
     const file = fileInput.files[0];
@@ -7,35 +19,19 @@ async function uploadVideo() {
         return;
     }
 
-    const response = await fetch('http://localhost:8000/generate-presigned-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            fileName: file.name,
-            fileType: file.type,
-        }),
-    });
+    const params = {
+        Bucket: "videos",
+        Key: `${file.name}`,
+        Body: file,
+        ContentType: file.type,
+    };
 
-    if (!response.ok) {
-        alert('Ошибка при получении URL для загрузки');
-        return;
-    }
-
-    const data = await response.json();     // 2. Парсим JSON
-    console.log("Распарсенный ответ:", data); // 3. Смотрим, что внутри
-
-    const presignedUrl = data.presigned_url;
-    console.log("URL", presignedUrl);
-
-    const uploadResponse = await fetch(presignedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': "video/mp4" },
-    });
-
-    if (uploadResponse.ok) {
-        alert('✅ Файл успешно загружен!');
-    } else {
-        alert('❌ Ошибка загрузки');
+    try {
+        const data = await s3.upload(params).promise();
+        console.log("Файл загружен:", data.Location);
+        return data.Location;
+    } catch (err) {
+        console.error("Ошибка загрузки:", err);
+        throw err;
     }
 }

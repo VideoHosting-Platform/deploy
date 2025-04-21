@@ -1,3 +1,5 @@
 .venv
 url_maker.py
 nohup.out
+tmp/
+events.sh

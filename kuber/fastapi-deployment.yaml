@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fastapi-app
+  namespace: argo
 spec:
   replicas: 1
   selector:
@@ -12,10 +13,13 @@ spec:
       labels:
         app: fastapi-app
     spec:
+      serviceAccountName: fastapi-external-sa
       containers:
       - name: fastapi-app
         # image: fastapi-app  # Используем локальный образ
-        image: localhost:5000/fastapi-app:4.0  # registry
+        # image: andrewsmooth/fastapi-app:8.2  # dockerHub
+        image: andrewsmooth/fastapi-app:latest  # registry
+        imagePullPolicy: Always
         # imagePullPolicy: Never  # Не тянуть из внешнего репозитория
         ports:
         - containerPort: 8000
@@ -24,6 +28,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fastapi-service
+  namespace: argo
 spec:
   selector:
     app: fastapi-app
