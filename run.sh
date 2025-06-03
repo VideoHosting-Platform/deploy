@@ -6,7 +6,7 @@ helm repo add traefik https://traefik.github.io/charts
 #minio
 helm install minio minio/minio --namespace minio \
   --create-namespace \
-  -f kuber/minio/minio-values.yaml
+  -f kuber/minio-values.yaml
 
 
 # rabbit mq
