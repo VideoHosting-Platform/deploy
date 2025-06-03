@@ -41,9 +41,9 @@ kubectl apply -f kuber/traefik/nginx.yaml
 kubectl apply -f kuber/traefik/upload-service.yaml
 
 # get passwords from RabbitMQ and Grafana
-kubectl get secret -n monitoring loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
-kubectl get secret rabbitmq-default-user -n rabbitmq-system -o jsonpath='{.data.username}' | base64 --decode
-kubectl get secret rabbitmq-default-user -n rabbitmq-system -o jsonpath='{.data.password}' | base64 --decode
+echo Grafana password - $(kubectl get secret -n monitoring loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
+echo RabbitMQ default user - $(kubectl get secret rabbitmq-default-user -n rabbitmq-system -o jsonpath='{.data.username}' | base64 --decode)
+echo RabbitMQ default user password - $(kubectl get secret rabbitmq-default-user -n rabbitmq-system -o jsonpath='{.data.password}' | base64 --decode)
 
 
 echo "Все сервисы запущены в фоне. 🚀"
