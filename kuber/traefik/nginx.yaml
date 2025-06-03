@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: static-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: static-server
+  template:
+    metadata:
+      labels:
+        app: static-server
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: static-content
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: static-content
+          configMap:
+            name: static-html-content
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: static-service
+spec:
+  selector:
+    app: static-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-static-prefix
+spec:
+  stripPrefix:
+    prefixes:
+      - /app
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: static-route
+spec:
+  parentRefs:
+    - name: my-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /app
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: strip-static-prefix
+      backendRefs:
+        - name: static-service
+          port: 80
