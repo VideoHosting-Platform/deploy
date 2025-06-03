@@ -1,0 +1,16 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+  namespace: rabbitmq-system
+spec:
+  replicas: 1
+  service:
+    type: ClusterIP  # Или LoadBalancer/NodePort
+  resources:
+    requests:
+      cpu: 500m
+      memory: 500Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi

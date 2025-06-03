@@ -1,48 +1,49 @@
-# запускает minikube, minio, argo, registry и дашборды для них
-
-check_status() {
-  if [ $? -eq 0 ]; then
-    echo "✅ $1 запущен успешно!"
-  else
-    echo "❌ Ошибка при запуске $1!"
-    exit 1
-  fi
-}
-
-minikube start
-
 helm repo add minio https://charts.min.io/
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add traefik https://traefik.github.io/charts
+
+#minio
 helm install minio minio/minio --namespace minio \
   --create-namespace \
-  -f kuber/minio/minio-values.yaml
+  -f kuber/minio-values.yaml
 
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
-helm install argo-workflows argo/argo-workflows \
-  --namespace argo \
+
+# rabbit mq
+kubectl apply -f "https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml"
+kubectl apply -f kuber/rabbitmq.yaml
+
+
+# prometheus
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --version 46.8.0 \
+  --namespace monitoring \
   --create-namespace \
-  --set "server.extraArgs={--auth-mode=server}"
-
-kubectl apply -f kuber/ffmpeg-templates.yaml -n argo
-kubectl apply -f kuber/ffmpeg-workflows.yaml -n argo
-kubectl apply -f kuber/fastapi-deployment.yaml
-kubectl apply -f kuber/roles.yaml
-kubectl apply -f kuber/rbac.yaml
-kubectl apply -f kuber/rbac_fastapi.yaml
-
-kubectl apply -f kuber/nginx/nginx-configmap.yaml
-kubectl apply -f kuber/nginx/nginx-deployment.yaml
-kubectl apply -f kuber/nginx/nginx-service.yaml
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+  --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
+  --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false \
+  --set alertmanager.alertmanagerSpec.alertmanagerConfigSelectorNilUsesHelmValues=false \
+  --set grafana.enabled=false
 
 
-# minikube addons enable registry
+# loki & grafana
+helm install loki grafana/loki-stack --namespace monitoring --values kuber/loki-values.yaml
 
-mc alias set minio $(minikube service -n minio minio --url | head -n 1) minioadmin minioadmin
-kubectl wait --for=condition=Ready -l app=fastapi-app -n argo pod --timeout=120s
-sleep 10
-mc admin config set minio notify_webhook:service endpoint="http://fastapi-service.argo.svc.cluster.local:8000/webhook"
-mc admin service restart minio
-sleep 10 
-mc event add minio/videos arn:minio:sqs::service:webhook --event put
+
+# traefik
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
+helm install traefik traefik/traefik --namespace traefik --create-namespace \
+  --set "providers.kubernetesGateway.enabled=true" \
+  --set service.type=NodePort
+kubectl apply -f kuber/traefik/gatewayclass.yaml
+kubectl apply -f kuber/traefik/gateway.yaml
+kubectl apply -f kuber/traefik/nginx.yaml
+kubectl apply -f kuber/traefik/upload-service.yaml
+
+# get passwords from RabbitMQ and Grafana
+echo Grafana password - $(kubectl get secret -n monitoring loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
+echo RabbitMQ default user - $(kubectl get secret rabbitmq-default-user -n rabbitmq-system -o jsonpath='{.data.username}' | base64 --decode)
+echo RabbitMQ default user password - $(kubectl get secret rabbitmq-default-user -n rabbitmq-system -o jsonpath='{.data.password}' | base64 --decode)
+
 
 echo "Все сервисы запущены в фоне. 🚀"

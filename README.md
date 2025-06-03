@@ -8,15 +8,6 @@ kubectl version --client
 ```
 
 
-Установка Argo CLI(если необходимо)
-```
-wget https://github.com/argoproj/argo-workflows/releases/latest/download/argo-linux-amd64.gz
-gunzip argo-linux-amd64.gz
-chmod +x argo-linux-amd64
-sudo mkdir /usr/local/bin/argo 
-sudo mv argo-linux-amd64 /usr/local/bin/argo
-```
-
 Установка `mc` - Minio client(если необходимо)
 ```
 curl https://dl.min.io/client/mc/release/linux-amd64/mc \
@@ -39,23 +30,23 @@ chmod 700 get_helm.sh
 # Запуск
 ### Запустить кластер локально:
 ```
+minikube start
 bash run.sh
 ```
-Можно открыть дашборд: `minikube dashboard`
+ports.sh - скрипт, чтобы пробросить порты и автоматически открыть все сервисы
 
-Адрес: `http://localhost:9001` 
+Можно открыть дашборд: `minikube dashboard`
 
 Посмотреть все процессы: `ps aux | grep port-forward`    
 
-Завершить: `pkill -f "kubectl port-forward"` 
-### Создать и запустить воркфлоу из ffmpeg-workflows.yaml:
-```
-argo submit -n argo kuber/ffmpeg-workflows.yaml \
-  -p video_path="BigBuckBunny_640x360.m4v" \
-  -p uuid="12" -p preset="240p"
-```
+Завершить: `pkill -f "kubectl port-forward"`
 
-#### Посмотреть логи
-argo logs -n argo <workflow-name> --timestamps
-argo logs -n argo @latest --timestamps
+# Какие сервисы запускаются и как?
+- Traefik(API-Gateway) - разворачивается в Helm
+- Minio - разворачивается в Helm
+- Rabbitmq - разворачивается без Helm, обычным kubectl apply -f ...
+- Nginx(раздает статический файл) - разворачивается без Helm, кастомные манифесты
+- Prometheus - разворачивается с Helm
+- Loki - разворачивается с Helm
+- Grafana - разворачивается с Helm во время установки Loki
 
