@@ -37,8 +37,11 @@ helm install traefik traefik/traefik --namespace traefik --create-namespace \
   --set service.type=NodePort
 kubectl apply -f kuber/traefik/gatewayclass.yaml
 kubectl apply -f kuber/traefik/gateway.yaml
-kubectl apply -f kuber/traefik/nginx.yaml
 kubectl apply -f kuber/traefik/upload-service.yaml
+
+# nginx
+kubectl create configmap static-html-content --from-file=static/index.html
+kubectl apply -f kuber/traefik/nginx.yaml
 
 # get passwords from RabbitMQ and Grafana
 echo Grafana password - $(kubectl get secret -n monitoring loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
