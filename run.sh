@@ -34,7 +34,7 @@ helm install loki grafana/loki-stack --namespace monitoring --values kuber/loki-
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
 helm install traefik traefik/traefik --namespace traefik --create-namespace \
   --set "providers.kubernetesGateway.enabled=true" \
-  --set service.type=NodePort
+  --set service.type=LoadBalancer
 kubectl apply -f kuber/traefik/gatewayclass.yaml
 kubectl apply -f kuber/traefik/gateway.yaml
 kubectl apply -f kuber/traefik/upload-service.yaml
