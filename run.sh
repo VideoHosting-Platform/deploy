@@ -38,6 +38,7 @@ helm install traefik traefik/traefik --namespace traefik --create-namespace \
 kubectl apply -f kuber/traefik/gatewayclass.yaml
 kubectl apply -f kuber/traefik/gateway.yaml
 kubectl apply -f kuber/traefik/upload-service.yaml
+kubectl apply -f kuber/traefik/video-service.yaml
 
 # nginx
 kubectl create configmap static-html-content --from-file=static/index.html
