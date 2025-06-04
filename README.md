@@ -2,9 +2,19 @@
 Установка kubectl(если необходимо)
 ```
 curl -LO https://dl.k8s.io/release/`curl -LS https://dl.k8s.io/release/stable.txt`/bin/linux/amd64/kubectl
-chmod +x ./kubectl
-sudo mv ./kubectl /usr/local/bin/kubectl
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
 kubectl version --client
+
+
+```
+
+Не обязательные фишки
+```
+// для bash, чтобы в cli были автодополнения команд
+// если не bash, то пободно
+echo 'source <(kubectl completion bash)' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 
