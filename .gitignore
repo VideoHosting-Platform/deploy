@@ -6,3 +6,4 @@ events.sh
 terraform.*
 .terraform
 .terraform.*
+logs/
