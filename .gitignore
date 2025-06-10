@@ -7,3 +7,6 @@ terraform.*
 .terraform
 .terraform.*
 logs/
+
+*.tgz
+*.tar.gz

@@ -4,7 +4,7 @@ metadata:
   name: video-route
 spec:
   parentRefs:
-    - name: my-gateway
+    - name: traefik-gateway
   rules:
     - matches:
         - path:

@@ -56,7 +56,7 @@ metadata:
   name: static-route
 spec:
   parentRefs:
-    - name: my-gateway
+    - name: traefik-gateway
   rules:
     - matches:
         - path:

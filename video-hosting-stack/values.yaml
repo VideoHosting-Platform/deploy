@@ -1,0 +1,157 @@
+uploadService:
+  enabled: false
+  rabbitmqPassword: rabbitmq
+  minioAccessKey: minio1
+  minioSecretKey: minio
+
+videoProcessor:
+  enabled: false
+  rabbitmqPassword: rabbitmq
+  minioAccessKey: minio2
+  minioSecretKey: minio
+
+videoService:
+  enabled: false
+  rabbitmqPassword: rabbitmq
+  minioAccessKey: minio3
+  minioSecretKey: minio
+
+
+minio:
+  mode: standalone
+  persistence:
+    enabled: false
+  
+  resources:
+    requests:
+      memory: 1Gi
+
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+
+  service:
+    type: ClusterIP
+    ports:
+      api: 9000
+
+  console:
+    enabled: true
+    service:
+      type: ClusterIP
+      ports:
+        http: 9090
+
+# Настройки RabbitMQ (пример)
+rabbitmq:
+  auth:
+    username: user
+    password: password
+  servicesPasswords:
+    uploadService: rabbitmq
+    videoProcessor: rabbitmq
+    videoService: rabbitmq
+  extraSecrets:
+    load-definition:
+      load_definition.json: |
+        {
+          "users": [
+            {
+              "name": "{{ .Values.auth.username }}",
+              "password": "{{ .Values.auth.password }}",
+              "tags": "administrator"
+            },
+            {
+              "name": "upload-service",
+              "password": "{{ .Values.servicesPasswords.uploadService }}",
+              "tags": "management"
+            },
+            {
+              "name": "video-processor-service",
+              "password": "{{ .Values.servicesPasswords.videoProcessor}}",
+              "tags": "management"
+            },
+            {
+              "name": "video-service",
+              "password": "{{ .Values.servicesPasswords.videoService }}",
+              "tags": "management"
+            }
+          ],
+          "vhosts": [
+            {
+              "name": "/"
+            }
+          ],
+          "permissions": [
+            {
+              "user": "{{ .Values.auth.username }}",
+              "vhost": "/",
+              "configure": ".*",
+              "write": ".*",
+              "read": ".*"
+            },
+            {
+              "user": "upload-service",
+              "vhost": "/",
+              "configure": "",
+              "write": ".*",
+              "read": ""
+            },
+            {
+              "user": "video-service",
+              "vhost": "/",
+              "configure": "",
+              "write": "",
+              "read": ".*"
+            },
+            {
+              "user": "video-processor-service",
+              "vhost": "/",
+              "configure": "",
+              "write": ".*",
+              "read": ".*"
+            }
+          ]
+        }
+  
+  loadDefinition:
+    enabled: true
+    existingSecret: load-definition
+
+traefik-crds:
+  enabled: true
+  gatewayAPI: true
+
+
+traefik:
+  deployment:
+    enabled: true
+    replicas: 1
+  
+  service:
+    enabled: true
+    type: NodePort
+  
+  experimental:
+    kubernetesGateway:
+      # -- Enable traefik experimental GatewayClass CRD
+      enabled: true
+  providers:
+    kubernetesGateway:
+      enabled: true
+  
+  gatewayClass:
+    enabled: true
+    name: traefik
+  
+  gateway:
+    enabled: true
+    name: traefik-gateway
+    listeners:
+      web:
+        port: 8000
+        protocol: HTTP
+        namespacePolicy: All
+
+
+

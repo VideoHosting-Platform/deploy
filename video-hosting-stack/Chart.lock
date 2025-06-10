@@ -1,0 +1,15 @@
+dependencies:
+- name: rabbitmq
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 16.0.6
+- name: minio
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 17.0.1
+- name: traefik-crds
+  repository: https://traefik.github.io/charts
+  version: 1.8.1
+- name: traefik
+  repository: https://traefik.github.io/charts
+  version: 36.0.0
+digest: sha256:674310170abdca1b577fa9f85de2d18228a1df91060c99d488e4a7278bb3e702
+generated: "2025-06-10T16:51:49.294267066+03:00"
