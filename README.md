@@ -1,6 +1,6 @@
 # Установка всех зависимостей и cli
 Установка kubectl(если необходимо)
-```
+``` bash
 curl -LO https://dl.k8s.io/release/`curl -LS https://dl.k8s.io/release/stable.txt`/bin/linux/amd64/kubectl
 chmod +x ./kubectl
 sudo mv ./kubectl /usr/local/bin/kubectl
@@ -9,7 +9,7 @@ kubectl version --client
 
 
 Установка `mc` - Minio client(если необходимо)
-```
+``` bash
 curl https://dl.min.io/client/mc/release/linux-amd64/mc \
   --create-dirs \
   -o $HOME/minio-binaries/mc
@@ -21,7 +21,7 @@ mc --help
 ```
 
 Установка Helm(если необходимо)
-```
+``` bash
 curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 chmod 700 get_helm.sh
 ./get_helm.sh
@@ -30,7 +30,7 @@ chmod 700 get_helm.sh
 # Запуск
 ### Запуск кластера локально:
 Для того чтобы не пондимать постоянно необходимые контейнеры, например RabbitMq, MinIO etc, делаем проброс портов
-```
+``` bash
 minikube start
 helm install video-hosting oci://ghcr.io/redblood-pixel/charts/video-hosting-stack --version 0.1.1
 bash bash/local_dev_ports.sh # скрипт, чтобы пробросить порты и автоматически открыть все сервисы
@@ -43,6 +43,25 @@ bash bash/local_dev_ports.sh # скрипт, чтобы пробросить п�
 ```
 # дополнить, наверное терраформ
 ```
+
+### Сборка и пуш чарта
+Чтобы собрать и запушить чарт нужно:
+- Перейти в папку с чартом - `cd ./path-to-chart(helm/video-hosting-stack)`
+- Обновить и скачать зависимости - `helm dependency update`
+- Проверить чарт - `helm lint .`
+- Собрать чарт - `helm package .`
+- Чтобы запушить нужно
+  - Создайте Personal Access Token (PAT) в GitHub: 
+    - Настройки → Developer settings → Personal access tokens → Tokens (classic).
+    - Дайте права: write:packages, read:packages, delete:packages
+  - Залогиньтесь в GHCR через Helm:
+    ``` bash
+    echo "ваш_github_token" | helm registry login ghcr.io \
+    --username ваш_github_username \
+    --password-stdi
+    ```
+- Запушить чарт - `helm push ваш-чарт-0.1.0.tgz oci://ghcr.io/ваш_github_username/charts`
+- Можно скачать чарт - `helm install my-app oci://ghcr.io/ваш_github_username/charts/ваш-чарт --version 0.1.1`
 
 # Какие сервисы запускаются и как?
 - Traefik(API-Gateway) - разворачивается в Helm
