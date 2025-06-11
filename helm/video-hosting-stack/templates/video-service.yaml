@@ -4,12 +4,12 @@ metadata:
   name: video-route
 spec:
   parentRefs:
-    - name: my-gateway
+    - name: traefik-gateway
   rules:
     - matches:
         - path:
             type: PathPrefix
             value: /video
       backendRefs:
-        - name: video-service
+        - name: {{ .Release.Name }}-video-service
           port: 8000

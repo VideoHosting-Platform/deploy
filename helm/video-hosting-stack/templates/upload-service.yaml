@@ -1,7 +1,7 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: strip-upload-prefix
+  name: {{ .Release.Name }}-strip-upload-prefix
 spec:
   stripPrefix:
     prefixes:
@@ -10,10 +10,10 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: upload-route
+  name: {{ .Release.Name }}-upload-route
 spec:
   parentRefs:
-    - name: my-gateway
+    - name: traefik-gateway
   rules:
     - matches:
         - path:
@@ -24,7 +24,7 @@ spec:
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: strip-upload-prefix
+            name: {{ .Release.Name }}-strip-upload-prefix
       backendRefs:
-        - name: upload-service
+        - name: {{ .Release.Name }}-upload-service
           port: 8080

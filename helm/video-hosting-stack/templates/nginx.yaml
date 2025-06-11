@@ -1,17 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-nginx-html
+data:
+  index.html: |-
+    {{ .Files.Get "files/index.html" | nindent 4 }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: static-server
+  name: {{ .Release.Name }}-static-server
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: static-server
+      app: {{ .Release.Name }}-static-server
   template:
     metadata:
       labels:
-        app: static-server
+        app: {{ .Release.Name }}-static-server
     spec:
       containers:
         - name: nginx
@@ -24,17 +32,17 @@ spec:
       volumes:
         - name: static-content
           configMap:
-            name: static-html-content
+            name: {{ .Release.Name }}-nginx-html
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: static-service
+  name: {{ .Release.Name }}-static-service
   namespace: default
 spec:
   selector:
-    app: static-server
+    app: {{ .Release.Name }}-static-server
   ports:
     - protocol: TCP
       port: 80
@@ -44,7 +52,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: strip-static-prefix
+  name: {{ .Release.Name }}-strip-static-prefix
 spec:
   stripPrefix:
     prefixes:
@@ -53,10 +61,10 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: static-route
+  name: {{ .Release.Name }}-static-route
 spec:
   parentRefs:
-    - name: my-gateway
+    - name: traefik-gateway
   rules:
     - matches:
         - path:
@@ -67,7 +75,7 @@ spec:
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: strip-static-prefix
+            name: {{ .Release.Name }}-strip-static-prefix
       backendRefs:
-        - name: static-service
+        - name: {{ .Release.Name }}-static-service
           port: 80
