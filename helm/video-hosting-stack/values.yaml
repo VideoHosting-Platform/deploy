@@ -53,12 +53,6 @@ rabbitmq:
     enabled: true
     existingSecret: rabbitmq-load-definition
 
-traefik-crds:
-  enabled: true
-  traefik: false
-  gatewayAPI: true
-  deleteOnUninstall: true
-
 
 traefik:
   deployment:
