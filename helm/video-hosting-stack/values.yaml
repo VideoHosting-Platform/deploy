@@ -1,0 +1,91 @@
+# поменять это все в production
+uploadService:
+  minioAccessKey: minio1
+  minioSecretKey: minio123
+  rabbitmqPassword: rabbitmq
+
+videoProcessor:
+  minioAccessKey: minio2
+  minioSecretKey: minio123
+  rabbitmqPassword: rabbitmq
+
+videoService:
+  rabbitmqPassword: rabbitmq
+
+
+env: dev
+
+
+minio:
+  mode: standalone
+  persistence:
+    enabled: false
+  
+  resources:
+    requests:
+      memory: 1Gi
+
+  # поменять в production
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+
+  service:
+    type: ClusterIP
+    ports:
+      api: 9000
+
+  console:
+    enabled: true
+    service:
+      type: ClusterIP
+      ports:
+        http: 9090
+
+
+rabbitmq:
+  # поменять в production
+  auth:
+    username: user
+    password: password
+  
+  loadDefinition:
+    enabled: true
+    existingSecret: rabbitmq-load-definition
+
+traefik-crds:
+  enabled: true
+  traefik: false
+  gatewayAPI: true
+  deleteOnUninstall: true
+
+
+traefik:
+  deployment:
+    enabled: true
+    replicas: 1
+  
+  service:
+    enabled: true
+    type: NodePort
+  
+  experimental:
+    kubernetesGateway:
+      # -- Enable traefik experimental GatewayClass CRD
+      enabled: true
+  providers:
+    kubernetesGateway:
+      enabled: true
+  
+  gatewayClass:
+    enabled: true
+    name: traefik
+  
+  gateway:
+    enabled: true
+    name: traefik-gateway
+    listeners:
+      web:
+        port: 8000
+        protocol: HTTP
+        namespacePolicy: All

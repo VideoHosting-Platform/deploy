@@ -11,5 +11,5 @@ spec:
             type: PathPrefix
             value: /video
       backendRefs:
-        - name: video-service
+        - name: {{ .Release.Name }}-video-service
           port: 8000

@@ -2,15 +2,17 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+HELM_RELEASE=video-hosting
+
 ### Конфигурация порт-форвардинга
 declare -A PORT_FORWARD_COMMANDS=(
   # GUI
 #   [loki-grafana]="kubectl port-forward svc/loki-grafana 3100:80"
-  [rabbitmq-ui]="kubectl port-forward  -n messaging svc/rabbitmq 15672:15672"
-  [minio-ui]="kubectl port-forward -n minio services/minio 9000:9000"
+  [rabbitmq-ui]="kubectl port-forward  svc/$HELM_RELEASE-rabbitmq 15672:15672"
+  [minio-ui]="kubectl port-forward  svc/$HELM_RELEASE-minio-console 9090:9090"
   # CLI/API
-  [rabbitmq-api]="kubectl port-forward -n messaging svc/rabbitmq 5672:5672"
-  [minio-api]="kubectl port-forward -n minio  svc/minio-console 9001:9001"
+  [rabbitmq-api]="kubectl port-forward svc/$HELM_RELEASE-rabbitmq 5672:5672"
+  [minio-api]="kubectl port-forward services/$HELM_RELEASE-minio 9000:9000"
 )
 
 LOG_DIR="./logs"
@@ -76,9 +78,9 @@ open_url() {
   fi
 }
 
-echo
+
 echo "=== Открываем GUI в браузере ==="
-open_url "http://localhost:9000"  # MinIO UI
+open_url "http://localhost:9090"  # MinIO UI
 open_url "http://localhost:15672" # RabbitMQ UI
 
 ### Переменные окружения для приложений
