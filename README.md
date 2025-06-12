@@ -45,6 +45,8 @@ bash bash/local_dev_ports.sh # скрипт, чтобы пробросить п�
 - [Traefik](https://artifacthub.io/packages/helm/traefik/traefik)
 - [Rabbitmq](https://artifacthub.io/packages/helm/bitnami/rabbitmq)
 - [Minio](https://artifacthub.io/packages/helm/bitnami/minio)
+
+Перед запуском terraform его необходимо [настроить](https://yandex.cloud/ru/docs/tutorials/infrastructure-management/kubernetes-terraform-provider)
 ```
 terraform -chdir=terraform init
 terraform -chdir=terraform apply
