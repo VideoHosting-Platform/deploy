@@ -76,8 +76,8 @@ resource "yandex_kubernetes_node_group" "k8s-node-group" {
   instance_template {
     platform_id = "standard-v2"  # Можно рассмотреть "standard-v1" для еще большей экономии
     resources {
-      memory = 4    # Уменьшил память с 8 до 4 ГБ
-      cores  = 2    # Уменьшил количество ядер с 4 до 2
+      memory = 8    # Уменьшил память с 8 до 4 ГБ
+      cores  = 4    # Уменьшил количество ядер с 4 до 2
     }
 
     boot_disk {

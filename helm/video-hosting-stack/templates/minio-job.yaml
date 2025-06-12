@@ -3,9 +3,9 @@ kind: Job
 metadata:
   name: {{ .Release.Name }}-minio-setup
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "5"  # Запускается после основного деплоя
-    "helm.sh/hook-delete-policy": "hook-succeeded"  # Удалить Job после успеха
+    "helm.sh/hook-delete-policy": "before-hook-creation"  # Удалить Job после успеха
 spec:
   template:
     spec:
@@ -31,11 +31,11 @@ spec:
             done
 
             # Создаем пользователей
-            mc admin user add minio-local {{ .Values.uploadService.minioAccessKey}} {{ .Values.uploadService.minioSecretKey}} 
-            mc admin user add minio-local {{ .Values.videoProcessor.minioAccessKey}} {{ .Values.videoProcessor.minioSecretKey}}
+            mc admin user add minio-local {{ .Values.uploadService.minio.accessKey}} {{ .Values.uploadService.minio.secretKey}} 
+            mc admin user add minio-local {{ .Values.videoProcessor.minio.accessKey}} {{ .Values.videoProcessor.minio.secretKey}}
 
-            mc admin policy attach minio-local writeonly --user={{ .Values.uploadService.minioAccessKey}}
-            mc admin policy set minio-local readwrite --user={{ .Values.videoProcessor.minioAccessKey}}
+            mc admin policy attach minio-local writeonly --user={{ .Values.uploadService.minio.accessKey}}
+            mc admin policy attach minio-local readwrite --user={{ .Values.videoProcessor.minio.accessKey}}
 
             # Создаем бакеты и настраиваем их
             mc mb minio-local/video-files --region=us-east-1

@@ -1,20 +1,37 @@
 # поменять это все в production
 uploadService:
-  minioAccessKey: minio1
-  minioSecretKey: minio123
-  rabbitmqPassword: rabbitmq
+  minio:
+    endpoint: video-hosting-minio:9000
+    accessKey: upload-service-1
+    secretKey: upload-service-minio
+  rabbitmq:
+    user: upload-service
+    password: rabbitmq
+
 
 videoProcessor:
-  minioAccessKey: minio2
-  minioSecretKey: minio123
-  rabbitmqPassword: rabbitmq
+  image:
+    repository: danilukumnik/video_processor
+    tag: "0.0.2"
+  minio:
+    host: video-hosting-minio
+    port: 9000
+    accessKey: video-processor
+    secretKey: video-processor-password2
+  rabbitmq:
+    user: video-processor-service
+    password: rabbitmq
 
 videoService:
-  rabbitmqPassword: rabbitmq
+  rabbitmq:
+    user: video-service
+    password: rabbitmq
 
 
 env: dev
 
+serviceAccount:
+  name: secrets-view
 
 minio:
   mode: standalone

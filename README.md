@@ -63,7 +63,7 @@ bash bash/local_dev_ports.sh # скрипт, чтобы пробросить п�
     ``` bash
     echo "ваш_github_token" | helm registry login ghcr.io \
     --username ваш_github_username \
-    --password-stdi
+    --password-stdin
     ```
 - Запушить чарт - `helm push ваш-чарт-0.1.0.tgz oci://ghcr.io/ваш_github_username/charts`
 - Можно скачать чарт - `helm install my-app oci://ghcr.io/ваш_github_username/charts/ваш-чарт --version 0.1.1`

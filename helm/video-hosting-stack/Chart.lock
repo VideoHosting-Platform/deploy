@@ -8,5 +8,11 @@ dependencies:
 - name: traefik
   repository: https://traefik.github.io/charts
   version: 36.0.0
-digest: sha256:9f08a9fa4ac88312922e1279522d97aeebde1378a567c7776fbf97a6dbe9c9b9
-generated: "2025-06-11T20:53:14.068263545+03:00"
+- name: upload-service
+  repository: oci://ghcr.io/redblood-pixel/charts
+  version: 0.1.1
+- name: video-processor
+  repository: oci://ghcr.io/redblood-pixel/charts
+  version: 0.1.0
+digest: sha256:2f3bd8b7c9311d4eb0784a43f5c1d324fc1027d66c49101a358f7231517c7008
+generated: "2025-06-13T00:59:45.288345257+03:00"

@@ -1,0 +1,61 @@
+# templates/helm-fix.yaml
+---
+# Выдаём права самому Helm для управления релизом
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-helm-manager
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-helm-binding
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: default  # Аккаунт по умолчанию для Helm операций
+  namespace: kube-system
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-helm-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Ваш существующий сервисный аккаунт с исправлениями
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+automountServiceAccountToken: true
+---
+# ClusterRole для доступа к секретам ВО ВСЕХ неймспейсах
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-global-secrets-access
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]  # Доступ к секретам
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]     # + доступ к подам
+  verbs: ["get", "list"]
+---
+# Привязка ко всем неймспейсам
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-global-secrets-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-global-secrets-access
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-{{ .Values.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
