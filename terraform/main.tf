@@ -4,10 +4,6 @@ terraform {
       source  = "yandex-cloud/yandex"
       version = ">= 0.85"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = ">= 2.16"
-    }
     helm = {
       source  = "hashicorp/helm"
       version = ">= 2.8"
@@ -121,15 +117,6 @@ resource "yandex_vpc_subnet" "k8s-subnet" {
   zone           = var.zone
   network_id     = yandex_vpc_network.k8s-network.id
   v4_cidr_blocks = ["10.10.0.0/16"]
-}
-
-
-
-# Настройка провайдеров Kubernetes и Helm
-provider "kubernetes" {
-  host                   = yandex_kubernetes_cluster.mk8s-cluster.master[0].external_v4_endpoint
-  cluster_ca_certificate = yandex_kubernetes_cluster.mk8s-cluster.master[0].cluster_ca_certificate
-  token                  = data.yandex_client_config.client.iam_token
 }
 
 provider "helm" {
