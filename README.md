@@ -32,7 +32,7 @@ chmod 700 get_helm.sh
 Для того чтобы не пондимать постоянно необходимые контейнеры, например RabbitMq, MinIO etc, делаем проброс портов
 ``` bash
 minikube start
-helm install video-hosting oci://ghcr.io/redblood-pixel/charts/video-hosting-stack --version 0.1.1
+helm install video-hosting oci://ghcr.io/redblood-pixel/charts/video-hosting-stack --version 0.1.6
 bash bash/local_dev_ports.sh # скрипт, чтобы пробросить порты и автоматически открыть все сервисы
 ```
 - Смотрим на вывод паролей и логинов(для лок. разработки)
@@ -70,7 +70,7 @@ terraform -chdir=terraform apply
     --password-stdin
     ```
 - Запушить чарт - `helm push ваш-чарт-0.1.0.tgz oci://ghcr.io/ваш_github_username/charts`
-- Можно скачать чарт - `helm install my-app oci://ghcr.io/ваш_github_username/charts/ваш-чарт --version 0.1.1`
+- Можно скачать чарт - `helm install my-app oci://ghcr.io/ваш_github_username/charts/ваш-чарт --version 0.1.0`
 
 # Какие сервисы запускаются и как?
 - Traefik(API-Gateway) - разворачивается в Helm

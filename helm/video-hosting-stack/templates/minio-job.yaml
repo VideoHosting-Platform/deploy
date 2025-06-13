@@ -3,9 +3,9 @@ kind: Job
 metadata:
   name: {{ .Release.Name }}-minio-setup
   annotations:
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "5"  # Запускается после основного деплоя
-    "helm.sh/hook-delete-policy": "before-hook-creation"  # Удалить Job после успеха
+    "helm.sh/hook-delete-policy": "hook-succeeded"  # Удалить Job после успеха
 spec:
   template:
     spec:
