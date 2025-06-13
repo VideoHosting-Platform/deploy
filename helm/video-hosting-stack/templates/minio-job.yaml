@@ -34,14 +34,14 @@ spec:
             mc admin user add minio-local {{ .Values.uploadService.minio.accessKey}} {{ .Values.uploadService.minio.secretKey}} 
             mc admin user add minio-local {{ .Values.videoProcessor.minio.accessKey}} {{ .Values.videoProcessor.minio.secretKey}}
 
-            mc admin policy attach minio-local writeonly --user={{ .Values.uploadService.minio.accessKey}}
-            mc admin policy attach minio-local readwrite --user={{ .Values.videoProcessor.minio.accessKey}}
+            mc admin policy attach minio-local readwrite --user {{ .Values.uploadService.minio.accessKey}}
+            mc admin policy attach minio-local readwrite --user {{ .Values.videoProcessor.minio.accessKey}}
 
             # Создаем бакеты и настраиваем их
             mc mb minio-local/video-files --region=us-east-1
             mc policy set public minio-local/uploads  # Делаем бакет публичным
 
             mc mb minio-local/videos --region=us-east-1
-            mc policy set download minio-local/videos  # Разрешаем только скачивание
+            mc policy set public minio-local/videos  # Разрешаем только скачивание
 
             echo "MinIO setup completed!"

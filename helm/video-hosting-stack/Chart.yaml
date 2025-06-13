@@ -34,11 +34,11 @@ dependencies:
     version: "36.0.0"
     repository: "https://traefik.github.io/charts"
   - name: upload-service
-    version: "0.1.1"
+    version: "0.1.4"
     repository: "oci://ghcr.io/redblood-pixel/charts"
     alias: uploadService
   - name: video-processor
-    version: "0.1.0"
+    version: "0.1.1"
     repository: "oci://ghcr.io/redblood-pixel/charts"
     alias: videoProcessor
 

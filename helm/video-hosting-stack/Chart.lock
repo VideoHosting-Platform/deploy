@@ -10,9 +10,9 @@ dependencies:
   version: 36.0.0
 - name: upload-service
   repository: oci://ghcr.io/redblood-pixel/charts
-  version: 0.1.1
+  version: 0.1.4
 - name: video-processor
   repository: oci://ghcr.io/redblood-pixel/charts
-  version: 0.1.0
-digest: sha256:2f3bd8b7c9311d4eb0784a43f5c1d324fc1027d66c49101a358f7231517c7008
-generated: "2025-06-13T00:59:45.288345257+03:00"
+  version: 0.1.1
+digest: sha256:a5f40aa0bffa65ec54ea4926755301057866a52202d6a71ea4818705b9767abe
+generated: "2025-06-13T11:52:53.606135754+03:00"

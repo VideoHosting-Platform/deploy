@@ -1,5 +1,8 @@
 # поменять это все в production
 uploadService:
+  image:
+    repository: danilukumnik/upload-service
+    tag: latest
   minio:
     endpoint: video-hosting-minio:9000
     accessKey: upload-service-1
