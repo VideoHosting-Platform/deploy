@@ -41,9 +41,9 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: install-traefik-crds
+  name: {{ .Release.Name }}-install-traefik-crds
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": "hook-succeeded"
 spec:
