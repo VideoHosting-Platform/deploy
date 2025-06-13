@@ -69,6 +69,9 @@ rabbitmq:
     username: user
     password: password
   
+  updateStrategy: 
+    type: OnDelete  # Для StatefulSet
+  
   loadDefinition:
     enabled: true
     existingSecret: rabbitmq-load-definition

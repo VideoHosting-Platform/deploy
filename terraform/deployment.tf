@@ -2,7 +2,7 @@ resource "helm_release" "video-hosting" {
     name = "video-hosting"
     repository = "oci://ghcr.io/redblood-pixel/charts"
     chart = "video-hosting-stack"
-    version = "0.1.7"
+    version = "0.1.8"
     namespace = "default"
     values = try(fileexists("${path.cwd}/values.yaml") ? [file("${path.cwd}/values.yaml")] : [], [])
 }

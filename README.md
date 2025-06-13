@@ -32,7 +32,7 @@ chmod 700 get_helm.sh
 Для того чтобы не пондимать постоянно необходимые контейнеры, например RabbitMq, MinIO etc, делаем проброс портов
 ``` bash
 minikube start
-helm install video-hosting oci://ghcr.io/redblood-pixel/charts/video-hosting-stack --version 0.1.7
+helm install video-hosting oci://ghcr.io/redblood-pixel/charts/video-hosting-stack --version 0.1.8
 bash bash/local_dev_ports.sh # скрипт, чтобы пробросить порты и автоматически открыть все сервисы
 ```
 - Смотрим на вывод паролей и логинов(для лок. разработки)
