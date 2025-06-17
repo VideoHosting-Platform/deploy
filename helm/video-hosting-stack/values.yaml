@@ -1,5 +1,8 @@
+deployMicroservices: true
+
 # поменять это все в production
 uploadService:
+  enabled: true
   image:
     repository: danilukumnik/upload-service
     tag: latest
@@ -13,6 +16,7 @@ uploadService:
 
 
 videoProcessor:
+  enabled: true
   image:
     repository: danilukumnik/video_processor
     tag: "0.0.2"
@@ -26,6 +30,7 @@ videoProcessor:
     password: rabbitmq
 
 videoService:
+  enabled: true
   rabbitmq:
     user: video-service
     password: rabbitmq

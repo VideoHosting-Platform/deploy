@@ -14,5 +14,8 @@ dependencies:
 - name: video-processor
   repository: oci://ghcr.io/redblood-pixel/charts
   version: 0.1.1
-digest: sha256:a5f40aa0bffa65ec54ea4926755301057866a52202d6a71ea4818705b9767abe
-generated: "2025-06-13T11:52:53.606135754+03:00"
+- name: video-service
+  repository: oci://ghcr.io/andrewsmooth/charts
+  version: 0.1.1
+digest: sha256:2441b421f0483291700b962635fe635b68a7c6681b2f8516330cea866f9af4d7
+generated: "2025-06-17T19:24:34.63077419+03:00"
