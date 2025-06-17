@@ -41,4 +41,8 @@ dependencies:
     version: "0.1.1"
     repository: "oci://ghcr.io/redblood-pixel/charts"
     alias: videoProcessor
+  - name: video-service
+    version: "0.1.0"
+    repository: "oci://ghcr.io/andrewsmooth/charts"
+    alias: videoService
 
