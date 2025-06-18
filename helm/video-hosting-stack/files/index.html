@@ -108,7 +108,7 @@
         status.textContent = 'Ошибка сети';
         });
 
-        xhr.open('POST', '../upload/upload', true);
+        xhr.open('POST', '/upload/upload', true);
         xhr.setRequestHeader('X-User-Id', '1');
         xhr.send(formData);
     });

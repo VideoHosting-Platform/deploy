@@ -4,7 +4,7 @@ metadata:
   name: {{ .Release.Name }}-player-redirect
 spec:
   replacePathRegex:
-    regex: "^/video/(.*)"
+    regex: "^/player$"
     replacement: /player.html
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -18,7 +18,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /video/
+            value: /player/
       filters:
         - type: ExtensionRef
           extensionRef:
