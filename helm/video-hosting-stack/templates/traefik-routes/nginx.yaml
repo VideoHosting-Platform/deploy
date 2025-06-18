@@ -5,6 +5,18 @@ metadata:
 data:
   index.html: |-
     {{ .Files.Get "files/index.html" | nindent 4 }}
+  player.html: |-
+    {{ .Files.Get "files/player.html" | nindent 4 }}
+  default.conf: |-
+    server {
+      listen 80;
+      root /usr/share/nginx/html;
+      index index.html;
+      
+      location / {
+        try_files $uri $uri/ =404;
+      }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,8 +41,14 @@ spec:
           volumeMounts:
             - name: static-content
               mountPath: /usr/share/nginx/html
+            - name: config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
       volumes:
         - name: static-content
+          configMap:
+            name: {{ .Release.Name }}-nginx-html
+        - name: config
           configMap:
             name: {{ .Release.Name }}-nginx-html
 
@@ -49,15 +67,6 @@ spec:
       targetPort: 80
 
 ---
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: {{ .Release.Name }}-strip-static-prefix
-spec:
-  stripPrefix:
-    prefixes:
-      - /app
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -69,13 +78,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /app
-      filters:
-        - type: ExtensionRef
-          extensionRef:
-            group: traefik.io
-            kind: Middleware
-            name: {{ .Release.Name }}-strip-static-prefix
+            value: /
       backendRefs:
         - name: {{ .Release.Name }}-static-service
           port: 80

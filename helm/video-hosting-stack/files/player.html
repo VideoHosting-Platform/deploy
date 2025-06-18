@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HLS Player</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.11.0/video-js.min.css" rel="stylesheet">
+  <style>
+    .video-js {
+      width: 800px;
+      height: 450px;
+    }
+    #quality-selector {
+      margin: 15px 0;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <video-js id="player" class="video-js vjs-default-skin" controls>
+    <source src="" type="application/x-mpegURL">
+  </video-js>
+  
+  <select id="quality-selector" onchange="changeQuality(this.value)"></select>
+  
+  <div style="margin-top: 20px;">
+    <input type="text" id="video-url" placeholder="Enter HLS URL" style="width: 400px; padding: 8px;">
+    <button onclick="loadVideo()" style="padding: 8px 16px;">Load</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.11.0/video.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-http-streaming/2.16.1/videojs-http-streaming.min.js"></script>
+  <script>
+    const player = videojs('player', {
+      html5: {
+        vhs: {
+          overrideNative: true,
+          enableLowInitialPlaylist: true
+        }
+      }
+    });
+
+    // Загрузка видео
+    function loadVideo() {
+      const url = document.getElementById('video-url').value;
+      if (!url) return;
+      
+      player.src({
+        src: url,
+        type: 'application/x-mpegURL'
+      });
+      
+      player.ready(() => {
+        player.play().catch(e => console.error("Play error:", e));
+      });
+    }
+
+    // Обработчик для выбора качества
+    function changeQuality(quality) {
+        console.log(quality)
+      const levels = player.qualityLevels();
+      levels.selectedIndex = parseInt(quality);
+    }
+
+    // Инициализация выбора качества
+    player.ready(function(){
+        this.on('loadedmetadata', function(){
+            console.log('lmd');
+            const selector = document.getElementById('quality-selector');
+            selector.innerHTML = '';
+            
+            const levels = player.qualityLevels();
+            if (levels.length > 1) {
+            selector.style.display = 'block';
+            for (let i = 0; i < levels.length; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.text = `${levels[i].height}p (${Math.round(levels[i].bandwidth/1000)} kbps)`;
+                selector.appendChild(option);
+            }
+            selector.value = levels.selectedIndex;
+            } else {
+            selector.style.display = 'none';
+            }
+        })
+    });
+    // player.on('loadedmetadata', () => {
+    // });
+
+    // Автозагрузка из URL параметра
+  </script>
+</body>
+</html>

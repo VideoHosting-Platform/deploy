@@ -42,6 +42,6 @@ spec:
             mc policy set public minio-local/uploads  # Делаем бакет публичным
 
             mc mb minio-local/videos --region=us-east-1
-            mc policy set public minio-local/videos  # Разрешаем только скачивание
+            mc anonymous set download minio-local/videos  # Разрешаем только скачивание
 
             echo "MinIO setup completed!"
