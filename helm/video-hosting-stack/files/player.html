@@ -1,91 +1,139 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>HLS Player</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.11.0/video-js.min.css" rel="stylesheet">
+  <title>HLS Player with Quality Selector</title>
+  <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
   <style>
-    .video-js {
-      width: 800px;
-      height: 450px;
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    #player-container {
+      margin: 20px 0;
+    }
+    .controls {
+      margin: 15px 0;
     }
     #quality-selector {
-      margin: 15px 0;
+      margin-top: 10px;
+      padding: 5px;
       display: none;
     }
   </style>
 </head>
 <body>
-  <video-js id="player" class="video-js vjs-default-skin" controls>
-    <source src="" type="application/x-mpegURL">
-  </video-js>
+  <h1>HLS Player with Quality Selection</h1>
   
-  <select id="quality-selector" onchange="changeQuality(this.value)"></select>
+  <div id="player-container">
+    <video id="player" playsinline controls></video>
+  </div>
   
-  <div style="margin-top: 20px;">
-    <input type="text" id="video-url" placeholder="Enter HLS URL" style="width: 400px; padding: 8px;">
-    <button onclick="loadVideo()" style="padding: 8px 16px;">Load</button>
+  <div class="controls">
+    <input type="text" id="url-input" placeholder="Enter HLS URL" style="width: 70%; padding: 8px;">
+    <button id="load-btn">Load Video</button>
+    <select id="quality-selector">
+      <option value="auto">Auto quality</option>
+    </select>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.11.0/video.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-http-streaming/2.16.1/videojs-http-streaming.min.js"></script>
+  <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  
   <script>
-    const player = videojs('player', {
-      html5: {
-        vhs: {
-          overrideNative: true,
-          enableLowInitialPlaylist: true
-        }
-      }
-    });
+    // Инициализация элементов
+    const playerElement = document.getElementById('player');
+    const player = new Plyr(playerElement);
+    const urlInput = document.getElementById('url-input');
+    const loadBtn = document.getElementById('load-btn');
+    const qualitySelector = document.getElementById('quality-selector');
+    
+    let hls = null;
+    let qualityLevels = [];
 
     // Загрузка видео
+    loadBtn.addEventListener('click', loadVideo);
+    qualitySelector.addEventListener('change', changeQuality);
+
     function loadVideo() {
-      const url = document.getElementById('video-url').value;
-      if (!url) return;
+      const url = urlInput.value.trim();
+      if (!url) return alert('Please enter a valid URL');
       
-      player.src({
-        src: url,
-        type: 'application/x-mpegURL'
-      });
+      // Очистка предыдущего плеера
+      if (hls) {
+        hls.destroy();
+        qualitySelector.style.display = 'none';
+      }
       
-      player.ready(() => {
-        player.play().catch(e => console.error("Play error:", e));
-      });
+      // Инициализация HLS
+      if (Hls.isSupported()) {
+        hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(playerElement);
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+          qualityLevels = data.levels;
+          updateQualitySelector();
+          player.play().catch(e => console.log('Autoplay prevented:', e));
+        });
+        
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS error:', data);
+          if (data.fatal) {
+            switch(data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                console.error('Unrecoverable error');
+            }
+          }
+        });
+        
+      } else if (playerElement.canPlayType('application/vnd.apple.mpegurl')) {
+        // Для Safari
+        playerElement.src = url;
+        playerElement.addEventListener('loadedmetadata', () => {
+          player.play().catch(e => console.log('Autoplay prevented:', e));
+        });
+      } else {
+        alert('HLS is not supported in your browser');
+      }
     }
 
-    // Обработчик для выбора качества
-    function changeQuality(quality) {
-        console.log(quality)
-      const levels = player.qualityLevels();
-      levels.selectedIndex = parseInt(quality);
+    // Обновление списка качеств
+    function updateQualitySelector() {
+      qualitySelector.innerHTML = '<option value="auto">Auto quality</option>';
+      
+      if (qualityLevels && qualityLevels.length > 1) {
+        qualityLevels.forEach((level, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.text = `${level.height}p (${Math.round(level.bitrate/1000)}kbps)`;
+          qualitySelector.appendChild(option);
+        });
+        qualitySelector.style.display = 'block';
+      }
     }
 
-    // Инициализация выбора качества
-    player.ready(function(){
-        this.on('loadedmetadata', function(){
-            console.log('lmd');
-            const selector = document.getElementById('quality-selector');
-            selector.innerHTML = '';
-            
-            const levels = player.qualityLevels();
-            if (levels.length > 1) {
-            selector.style.display = 'block';
-            for (let i = 0; i < levels.length; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.text = `${levels[i].height}p (${Math.round(levels[i].bandwidth/1000)} kbps)`;
-                selector.appendChild(option);
-            }
-            selector.value = levels.selectedIndex;
-            } else {
-            selector.style.display = 'none';
-            }
-        })
-    });
-    // player.on('loadedmetadata', () => {
-    // });
+    // Изменение качества
+    function changeQuality() {
+      if (!hls) return;
+      
+      const quality = qualitySelector.value;
+      if (quality === 'auto') {
+        hls.currentLevel = -1; // Автовыбор
+      } else {
+        hls.currentLevel = parseInt(quality);
+      }
+    }
 
-    // Автозагрузка из URL параметра
+    // Автозагрузка тестового потока
+    urlInput.value = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
   </script>
 </body>
 </html>
