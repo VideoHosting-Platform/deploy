@@ -22,6 +22,17 @@
       display: none;
     }
   </style>
+  <script>
+    function getVideoId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      return id ? id : null;
+    }
+    function getVideoUrl() {
+      const videoId = getVideoId();
+      return videoId ? `http://192.168.49.2:31159/videos/${videoId}/master.m3u8` : null;
+    }
+  </script>
 </head>
 <body>
   <h1>HLS Player with Quality Selection</h1>
@@ -31,8 +42,6 @@
   </div>
   
   <div class="controls">
-    <input type="text" id="url-input" placeholder="Enter HLS URL" style="width: 70%; padding: 8px;">
-    <button id="load-btn">Load Video</button>
     <select id="quality-selector">
       <option value="auto">Auto quality</option>
     </select>
@@ -45,20 +54,22 @@
     // Инициализация элементов
     const playerElement = document.getElementById('player');
     const player = new Plyr(playerElement);
-    const urlInput = document.getElementById('url-input');
-    const loadBtn = document.getElementById('load-btn');
     const qualitySelector = document.getElementById('quality-selector');
     
     let hls = null;
     let qualityLevels = [];
-
+    
     // Загрузка видео
-    loadBtn.addEventListener('click', loadVideo);
     qualitySelector.addEventListener('change', changeQuality);
+    
+    const videoUrl = getVideoUrl();
+    if (!videoUrl) {
+      document.body.innerHTML = '<h1>Video ID not found in URL</h1>';
+    } else {
+      loadVideo();
+    }
 
     function loadVideo() {
-      const url = urlInput.value.trim();
-      if (!url) return alert('Please enter a valid URL');
       
       // Очистка предыдущего плеера
       if (hls) {
@@ -69,7 +80,7 @@
       // Инициализация HLS
       if (Hls.isSupported()) {
         hls = new Hls();
-        hls.loadSource(url);
+        hls.loadSource(videoUrl);
         hls.attachMedia(playerElement);
         
         hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
@@ -131,9 +142,8 @@
         hls.currentLevel = parseInt(quality);
       }
     }
+  
 
-    // Автозагрузка тестового потока
-    urlInput.value = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
   </script>
 </body>
 </html>
