@@ -7,6 +7,8 @@ data:
     {{ .Files.Get "files/index.html" | nindent 4 }}
   player.html: |-
     {{ .Files.Get "files/player.html" | nindent 4 }}
+  list_videos.html: |-
+    {{ .Files.Get "files/list_videos.html" | nindent 4}}
   default.conf: |-
     server {
       listen 80;

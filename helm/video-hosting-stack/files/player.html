@@ -49,17 +49,6 @@
       display: none;
     }
   </style>
-  <script>
-    function getVideoId() {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('id');
-    }
-    
-    function getVideoUrl() {
-      const videoId = getVideoId();
-      return videoId ? `/videos/${videoId}/master.m3u8` : null;
-    }
-  </script>
 </head>
 <body>
   <h1>Video Player</h1>
@@ -92,15 +81,39 @@
     let isQualitySwitching = false;
     let currentQualityLevel = -1;
 
+    function getVideoId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id');
+    }
+
+    // Загружаем информацию о видео
+    async function loadVideoInfo(videoId) {
+      try {
+        const response = await fetch(`/video/${videoId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load video info');
+        }
+        const data = await response.json();
+        return data.title || `Video ${videoId}`;
+      } catch (error) {
+        console.error('Error loading video info:', error);
+        return `Video ${videoId}`;
+      }
+    }
+
     // Инициализация плеера
     initPlayer();
 
-    function initPlayer() {
-      const videoUrl = getVideoUrl();
-      if (!videoUrl) {
+    async function initPlayer() {
+      const videoId = getVideoId();
+      if (!videoId) {
         document.body.innerHTML = '<h1>Video ID not found in URL</h1>';
         return;
       }
+
+      // Загружаем и устанавливаем название видео
+      const videoTitle = await loadVideoInfo(videoId);
+      videoTitleElement.textContent = videoTitle;
 
       // Очистка предыдущего экземпляра
       if (hls) {
@@ -207,6 +220,7 @@
 
     // Назначение обработчика
     qualitySelector.addEventListener('change', changeQuality);
+    initPlayer();
   </script>
 </body>
 </html>
