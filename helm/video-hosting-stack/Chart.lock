@@ -9,13 +9,13 @@ dependencies:
   repository: https://traefik.github.io/charts
   version: 36.0.0
 - name: upload-service
-  repository: oci://ghcr.io/redblood-pixel/charts
-  version: 0.1.4
+  repository: oci://ghcr.io/video-hosting-platform/charts
+  version: 0.1.6
 - name: video-processor
-  repository: oci://ghcr.io/redblood-pixel/charts
+  repository: oci://ghcr.io/video-hosting-platform/charts
   version: 0.1.1
 - name: video-service
-  repository: oci://ghcr.io/andrewsmooth/charts
-  version: 0.1.1
-digest: sha256:2441b421f0483291700b962635fe635b68a7c6681b2f8516330cea866f9af4d7
-generated: "2025-06-17T19:24:34.63077419+03:00"
+  repository: oci://ghcr.io/video-hosting-platform/charts
+  version: 0.1.2
+digest: sha256:1b7e02159b7119e87efa76795542e1f322bf7e85bec65c0a6937cc850d703041
+generated: "2025-06-20T13:35:05.785406287+03:00"

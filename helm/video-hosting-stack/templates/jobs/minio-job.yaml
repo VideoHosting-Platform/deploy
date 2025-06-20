@@ -5,7 +5,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "5"  # Запускается после основного деплоя
-    "helm.sh/hook-delete-policy": "hook-succeeded"  # Удалить Job после успеха
+    "helm.sh/hook-delete-policy": {{ .Values.minio.hookSetupPolicy }} 
 spec:
   template:
     spec:
@@ -42,6 +42,6 @@ spec:
             mc policy set public minio-local/uploads  # Делаем бакет публичным
 
             mc mb minio-local/videos --region=us-east-1
-            mc policy set public minio-local/videos  # Разрешаем только скачивание
+            mc anonymous set download minio-local/videos  # Разрешаем только скачивание
 
             echo "MinIO setup completed!"

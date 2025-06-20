@@ -18,7 +18,7 @@ uploadService:
 videoProcessor:
   enabled: true
   image:
-    repository: danilukumnik/video_processor
+    repository: valery223344/video_processor
     tag: "0.0.2"
   minio:
     host: video-hosting-minio
@@ -43,8 +43,11 @@ serviceAccount:
 
 minio:
   mode: standalone
+  hookSetupPolicy: hook-succeeded
   persistence:
-    enabled: false
+    enabled: true
+    accessModes: ["ReadWriteOnce"]
+    size: 8Gi
   
   resources:
     requests:

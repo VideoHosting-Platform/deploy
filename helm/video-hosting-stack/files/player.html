@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HLS Player with Smooth Quality Switching</title>
+  <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .player-container-wrapper {
+      width: 100%;
+      max-width: 95vw;
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    #player-container {
+      position: relative;
+      width: 80%;
+      /* padding-bottom: 10%; 16:9 соотношение */
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0,0,0,0.7);
+      margin-bottom: 20px;
+    }
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      display: none;
+    }
+    #quality-selector {
+      margin-top: 10px;
+      padding: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="video-title" class="video-title">Loading video...</h1>
+  
+  <div id="player-container">
+    <div id="loading-overlay">
+      <div>Switching quality... Please wait</div>
+    </div>
+    <video id="player" playsinline controls></video>
+  </div>
+  
+  <div class="controls">
+    <select id="quality-selector">
+      <option value="auto">Auto quality</option>
+    </select>
+  </div>
+
+  <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  
+  <script>
+    // Инициализация элементов
+    const playerElement = document.getElementById('player');
+    const player = new Plyr(playerElement);
+    const qualitySelector = document.getElementById('quality-selector');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const videoTitleElement = document.getElementById('video-title');
+    
+    let hls = null;
+    let qualityLevels = [];
+    let isQualitySwitching = false;
+    let currentQualityLevel = -1;
+
+    function getVideoId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id');
+    }
+
+    // Загружаем информацию о видео (title и video_url)
+    async function loadVideoInfo(videoId) {
+      try {
+        const response = await fetch(`/video/${videoId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load video info');
+        }
+        const data = await response.json();
+        return {
+          title: data.title || `Video ${videoId}`,
+          videoUrl: data.video_url || `/videos/${videoId}/master.m3u8`
+        };
+      } catch (error) {
+        console.error('Error loading video info:', error);
+        return {
+          title: `Video ${videoId}`,
+          videoUrl: `/videos/${videoId}/master.m3u8`
+        };
+      }
+    }
+
+    async function initPlayerWithData(videoData) {
+      videoTitleElement.textContent = videoData.title;
+
+      // Очистка предыдущего экземпляра
+      if (hls) {
+        hls.destroy();
+      }
+
+      // Создание нового экземпляра HLS
+      hls = new Hls({
+        maxMaxBufferLength: 30,
+        maxBufferSize: 10 * 1000 * 1000,
+        maxBufferLength: 30
+      });
+
+      // Загрузка видео по URL из API
+      hls.loadSource(videoData.videoUrl);
+      hls.attachMedia(playerElement);
+
+      // Обработчики событий (остаются без изменений)
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        qualityLevels = data.levels;
+        updateQualitySelector();
+        loadingOverlay.style.display = 'none';
+        player.play().catch(e => console.log('Autoplay prevented:', e));
+      });
+
+      hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+        console.log('Quality switched to:', qualityLevels[data.level]?.height + 'p');
+        currentQualityLevel = data.level;
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+          isQualitySwitching = false;
+        }, 500);
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error('HLS error:', data);
+        if (data.fatal && !isQualitySwitching) {
+          switch(data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('Unrecoverable error');
+              showError('Failed to load video');
+          }
+        }
+      });
+    }
+
+    // Обновление списка качеств
+    function updateQualitySelector() {
+      qualitySelector.innerHTML = '<option value="auto">Auto quality</option>';
+      
+      if (qualityLevels && qualityLevels.length > 1) {
+        qualityLevels.forEach((level, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.text = `${level.height}p (${Math.round(level.bitrate/1000)}kbps)`;
+          qualitySelector.appendChild(option);
+        });
+        qualitySelector.style.display = 'block';
+      }
+    }
+
+    // Изменение качества с плавным переходом
+    function changeQuality() {
+      if (!hls || isQualitySwitching) return;
+      
+      const newQuality = qualitySelector.value === 'auto' ? -1 : parseInt(qualitySelector.value);
+      
+      // Проверяем, изменилось ли качество
+      if (newQuality === currentQualityLevel) {
+        console.log('Already playing this quality level');
+        return;
+      }
+      startQualitySwitch(newQuality);
+    }
+    function startQualitySwitch(newQuality) {
+      // Подготовка к переключению
+      isQualitySwitching = true;
+      loadingOverlay.style.display = 'flex';
+      const currentTime = player.currentTime;
+      const wasPaused = player.paused;
+      
+      player.pause();
+      
+      // Переключение качества
+      hls.currentLevel = newQuality;
+      // Ждем завершения переключения
+      const checkInterval = setInterval(() => {
+        if (!isQualitySwitching) {
+          clearInterval(checkInterval);
+          // Восстанавливаем воспроизведение
+          player.currentTime = currentTime;
+          if (!wasPaused) {
+            player.play().catch(e => console.log('Playback error:', e));
+          }
+        }
+      }, 100);
+    }
+
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', async () => {
+      const videoId = getVideoId();
+      if (!videoId) {
+        showError('Video ID not specified');
+        return;
+      }
+
+      // Показываем индикатор загрузки
+      loadingOverlay.style.display = 'flex';
+
+      try {
+        // Загружаем данные о видео
+        const videoData = await loadVideoInfo(videoId);
+        
+        // Инициализируем плеер с полученными данными
+        await initPlayerWithData(videoData);
+        
+        // Назначаем обработчик изменения качества
+        qualitySelector.addEventListener('change', changeQuality);
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+  </script>
+</body>
+</html>
