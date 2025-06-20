@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-nginx-html
+data:
+  index.html: |-
+    {{ .Files.Get "files/index.html" | nindent 4 }}
+  player.html: |-
+    {{ .Files.Get "files/player.html" | nindent 4 }}
+  list_videos.html: |-
+    {{ .Files.Get "files/list_videos.html" | nindent 4}}
+  default.conf: |-
+    server {
+      listen 80;
+      root /usr/share/nginx/html;
+      index index.html;
+      
+      location / {
+        try_files $uri $uri/ =404;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-static-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-static-server
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-static-server
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: static-content
+              mountPath: /usr/share/nginx/html
+            - name: config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+      volumes:
+        - name: static-content
+          configMap:
+            name: {{ .Release.Name }}-nginx-html
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-nginx-html
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-static-service
+spec:
+  selector:
+    app: {{ .Release.Name }}-static-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .Release.Name }}-strip-upload-static-prefix
+spec:
+  stripPrefix:
+    prefixes:
+      - /upload-video
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-static-route
+spec:
+  parentRefs:
+    - name: traefik-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /upload-video
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: {{ .Release.Name }}-strip-upload-static-prefix
+      backendRefs:
+        - name: {{ .Release.Name }}-static-service
+          port: 80

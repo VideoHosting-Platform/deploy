@@ -1,0 +1,75 @@
+{
+    "users": [
+    {
+        "name": "{{ .Values.rabbitmq.auth.username }}",
+        "password": "{{ .Values.rabbitmq.auth.password }}",
+        "tags": "administrator"
+    },
+    {
+        "name": "{{ .Values.uploadService.rabbitmq.user }}",
+        "password": "{{ .Values.uploadService.rabbitmq.password }}",
+        "tags": "management"
+    },
+    {
+        "name": "{{ .Values.videoProcessor.rabbitmq.user }}",
+        "password": "{{ .Values.videoProcessor.rabbitmq.password }}",
+        "tags": "management"
+    },
+    {
+        "name": "{{ .Values.videoService.rabbitmq.user }}",
+        "password": "{{ .Values.videoService.rabbitmq.password }}",
+        "tags": "management"
+    }
+    ],
+    "vhosts": [
+    {
+        "name": "/"
+    }
+    ],
+    "queues": [
+    {
+        "name": "video_processing",
+        "vhost": "/",
+        "durable": true,
+        "auto_delete": false,
+        "arguments": {}
+    },
+    {
+        "name": "db_upload",
+        "vhost": "/",
+        "durable": true,
+        "auto_delete": false,
+        "arguments": {}
+    }
+    ],
+    "permissions": [
+    {
+        "user": "{{ .Values.rabbitmq.auth.username }}",
+        "vhost": "/",
+        "configure": ".*",
+        "write": ".*",
+        "read": ".*"
+    },
+    {
+        "user": "{{ .Values.uploadService.rabbitmq.user }}",
+        "vhost": "/",
+        "configure": "",
+        "write": ".*",
+        "read": ""
+    },
+    {
+        "user": "{{ .Values.videoService.rabbitmq.user }}",
+        "vhost": "/",
+        "configure": "",
+        "write": ".*",
+        "read": ".*"
+    },
+    {
+        "user": "{{ .Values.videoProcessor.rabbitmq.user }}",
+        "vhost": "/",
+        "configure": "",
+        "write": ".*",
+        "read": ".*"
+    }
+    ]
+}

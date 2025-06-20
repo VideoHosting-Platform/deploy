@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-minio-setup
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"  # Запускается после основного деплоя
+    "helm.sh/hook-delete-policy": {{ .Values.minio.hookSetupPolicy }} 
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: minio-setup
+        image: minio/mc:latest
+        env:
+          - name: MINIO_SERVER
+            value: "http://{{ .Release.Name }}-minio:9000"
+          - name: MINIO_ROOT_USER
+            value: {{ .Values.minio.auth.rootUser }}
+          - name: MINIO_ROOT_PASSWORD
+            value: {{ .Values.minio.auth.rootPassword }}
+        command:
+          - /bin/sh
+          - -c
+          - |
+            # Ждем, пока MinIO станет доступен
+            until mc alias set minio-local $MINIO_SERVER $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD; do
+              echo "Waiting for MinIO to be ready..."
+              sleep 5
+            done
+
+            # Создаем пользователей
+            mc admin user add minio-local {{ .Values.uploadService.minio.accessKey}} {{ .Values.uploadService.minio.secretKey}} 
+            mc admin user add minio-local {{ .Values.videoProcessor.minio.accessKey}} {{ .Values.videoProcessor.minio.secretKey}}
+
+            mc admin policy attach minio-local readwrite --user {{ .Values.uploadService.minio.accessKey}}
+            mc admin policy attach minio-local readwrite --user {{ .Values.videoProcessor.minio.accessKey}}
+
+            # Создаем бакеты и настраиваем их
+            mc mb minio-local/video-files --region=us-east-1
+            mc policy set public minio-local/uploads  # Делаем бакет публичным
+
+            mc mb minio-local/videos --region=us-east-1
+            mc anonymous set download minio-local/videos  # Разрешаем только скачивание
+
+            echo "MinIO setup completed!"

@@ -1,0 +1,116 @@
+deployMicroservices: true
+
+# поменять это все в production
+uploadService:
+  enabled: true
+  image:
+    repository: danilukumnik/upload-service
+    tag: latest
+  minio:
+    endpoint: video-hosting-minio:9000
+    accessKey: upload-service-1
+    secretKey: upload-service-minio
+  rabbitmq:
+    user: upload-service
+    password: rabbitmq
+
+
+videoProcessor:
+  enabled: true
+  image:
+    repository: valery223344/video_processor
+    tag: "0.0.2"
+  minio:
+    host: video-hosting-minio
+    port: 9000
+    accessKey: video-processor
+    secretKey: video-processor-password2
+  rabbitmq:
+    user: video-processor-service
+    password: rabbitmq
+
+videoService:
+  enabled: true
+  rabbitmq:
+    user: video-service
+    password: rabbitmq
+
+
+env: dev
+
+serviceAccount:
+  name: secrets-view
+
+minio:
+  mode: standalone
+  hookSetupPolicy: hook-succeeded
+  persistence:
+    enabled: true
+    accessModes: ["ReadWriteOnce"]
+    size: 8Gi
+  
+  resources:
+    requests:
+      memory: 1Gi
+
+  # поменять в production
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+
+  service:
+    type: ClusterIP
+    ports:
+      api: 9000
+
+  console:
+    enabled: true
+    service:
+      type: ClusterIP
+      ports:
+        http: 9090
+
+
+rabbitmq:
+  # поменять в production
+  auth:
+    username: user
+    password: password
+  
+  updateStrategy: 
+    type: OnDelete  # Для StatefulSet
+  
+  loadDefinition:
+    enabled: true
+    existingSecret: rabbitmq-load-definition
+
+
+traefik:
+  deployment:
+    enabled: true
+    replicas: 1
+  
+  service:
+    enabled: true
+    type: NodePort
+  
+  experimental:
+    kubernetesGateway:
+      # -- Enable traefik experimental GatewayClass CRD
+      enabled: true
+  providers:
+    kubernetesGateway:
+      enabled: true
+  
+  gatewayClass:
+    enabled: true
+    name: traefik
+  
+  gateway:
+    enabled: true
+    name: traefik-gateway
+    listeners:
+      web:
+        port: 8000
+        protocol: HTTP
+        namespacePolicy: All

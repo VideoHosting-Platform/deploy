@@ -1,0 +1,21 @@
+dependencies:
+- name: rabbitmq
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 16.0.6
+- name: minio
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 17.0.1
+- name: traefik
+  repository: https://traefik.github.io/charts
+  version: 36.0.0
+- name: upload-service
+  repository: oci://ghcr.io/video-hosting-platform/charts
+  version: 0.1.6
+- name: video-processor
+  repository: oci://ghcr.io/video-hosting-platform/charts
+  version: 0.1.1
+- name: video-service
+  repository: oci://ghcr.io/video-hosting-platform/charts
+  version: 0.1.2
+digest: sha256:1b7e02159b7119e87efa76795542e1f322bf7e85bec65c0a6937cc850d703041
+generated: "2025-06-20T13:35:05.785406287+03:00"

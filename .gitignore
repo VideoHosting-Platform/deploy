@@ -3,3 +3,11 @@ url_maker.py
 nohup.out
 tmp/
 events.sh
+terraform.*
+.terraform
+.terraform.*
+logs/
+
+*.tgz
+*.tar.gz
+values.prod.yaml
