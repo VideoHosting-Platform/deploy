@@ -61,7 +61,7 @@
         "user": "{{ .Values.videoService.rabbitmq.user }}",
         "vhost": "/",
         "configure": "",
-        "write": "",
+        "write": ".*",
         "read": ".*"
     },
     {

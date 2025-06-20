@@ -15,7 +15,7 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.1.10
+version: 0.1.11
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
@@ -34,18 +34,18 @@ dependencies:
     version: "36.0.0"
     repository: "https://traefik.github.io/charts"
   - name: upload-service
-    version: "0.1.4"
-    repository: "oci://ghcr.io/redblood-pixel/charts"
+    version: "0.1.6"
+    repository: "oci://ghcr.io/video-hosting-platform/charts"
     alias: uploadService
     condition: deployMicroservices
   - name: video-processor
     version: "0.1.1"
-    repository: "oci://ghcr.io/redblood-pixel/charts"
+    repository: "oci://ghcr.io/video-hosting-platform/charts"
     alias: videoProcessor
     condition: deployMicroservices
   - name: video-service
-    version: "0.1.1"
-    repository: "oci://ghcr.io/andrewsmooth/charts"
+    version: "0.1.2"
+    repository: "oci://ghcr.io/video-hosting-platform/charts"
     alias: videoService
     condition: deployMicroservices
 
