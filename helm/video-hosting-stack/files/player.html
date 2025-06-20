@@ -51,7 +51,7 @@
   </style>
 </head>
 <body>
-  <h1>Video Player</h1>
+  <h1 id="video-title" class="video-title">Loading video...</h1>
   
   <div id="player-container">
     <div id="loading-overlay">
@@ -75,6 +75,7 @@
     const player = new Plyr(playerElement);
     const qualitySelector = document.getElementById('quality-selector');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const videoTitleElement = document.getElementById('video-title');
     
     let hls = null;
     let qualityLevels = [];
@@ -86,7 +87,7 @@
       return urlParams.get('id');
     }
 
-    // Загружаем информацию о видео
+    // Загружаем информацию о видео (title и video_url)
     async function loadVideoInfo(videoId) {
       try {
         const response = await fetch(`/video/${videoId}`);
@@ -94,26 +95,21 @@
           throw new Error('Failed to load video info');
         }
         const data = await response.json();
-        return data.title || `Video ${videoId}`;
+        return {
+          title: data.title || `Video ${videoId}`,
+          videoUrl: data.video_url || `/videos/${videoId}/master.m3u8`
+        };
       } catch (error) {
         console.error('Error loading video info:', error);
-        return `Video ${videoId}`;
+        return {
+          title: `Video ${videoId}`,
+          videoUrl: `/videos/${videoId}/master.m3u8`
+        };
       }
     }
 
-    // Инициализация плеера
-    initPlayer();
-
-    async function initPlayer() {
-      const videoId = getVideoId();
-      if (!videoId) {
-        document.body.innerHTML = '<h1>Video ID not found in URL</h1>';
-        return;
-      }
-
-      // Загружаем и устанавливаем название видео
-      const videoTitle = await loadVideoInfo(videoId);
-      videoTitleElement.textContent = videoTitle;
+    async function initPlayerWithData(videoData) {
+      videoTitleElement.textContent = videoData.title;
 
       // Очистка предыдущего экземпляра
       if (hls) {
@@ -122,27 +118,26 @@
 
       // Создание нового экземпляра HLS
       hls = new Hls({
-        maxMaxBufferLength: 30, // Уменьшаем буфер для быстрого переключения
+        maxMaxBufferLength: 30,
         maxBufferSize: 10 * 1000 * 1000,
         maxBufferLength: 30
       });
 
-      // Загрузка видео
-      hls.loadSource(videoUrl);
+      // Загрузка видео по URL из API
+      hls.loadSource(videoData.videoUrl);
       hls.attachMedia(playerElement);
 
-      // Обработчики событий
+      // Обработчики событий (остаются без изменений)
       hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
         qualityLevels = data.levels;
         updateQualitySelector();
+        loadingOverlay.style.display = 'none';
         player.play().catch(e => console.log('Autoplay prevented:', e));
       });
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
         console.log('Quality switched to:', qualityLevels[data.level]?.height + 'p');
-        // Скрываем индикатор загрузки после небольшой задержки
         currentQualityLevel = data.level;
-
         setTimeout(() => {
           loadingOverlay.style.display = 'none';
           isQualitySwitching = false;
@@ -161,6 +156,7 @@
               break;
             default:
               console.error('Unrecoverable error');
+              showError('Failed to load video');
           }
         }
       });
@@ -218,9 +214,30 @@
       }, 100);
     }
 
-    // Назначение обработчика
-    qualitySelector.addEventListener('change', changeQuality);
-    initPlayer();
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', async () => {
+      const videoId = getVideoId();
+      if (!videoId) {
+        showError('Video ID not specified');
+        return;
+      }
+
+      // Показываем индикатор загрузки
+      loadingOverlay.style.display = 'flex';
+
+      try {
+        // Загружаем данные о видео
+        const videoData = await loadVideoInfo(videoId);
+        
+        // Инициализируем плеер с полученными данными
+        await initPlayerWithData(videoData);
+        
+        // Назначаем обработчик изменения качества
+        qualitySelector.addEventListener('change', changeQuality);
+      } catch (error) {
+        showError(error.message);
+      }
+    });
   </script>
 </body>
 </html>
